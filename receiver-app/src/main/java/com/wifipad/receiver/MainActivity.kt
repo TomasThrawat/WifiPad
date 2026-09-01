@@ -114,6 +114,14 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun requestShizuku() {
+        // Shizuku.checkSelfPermission()/requireService() throw IllegalStateException
+        // ("binder haven't been received") if called before the Shizuku binder is
+        // connected — this is what crashed the app. pingBinder() is the library's
+        // documented way to check that first instead of relying on a listener.
+        if (!Shizuku.pingBinder()) {
+            statusView.text = "Shizuku not connected — open the Shizuku app, start it, then try again"
+            return
+        }
         if (Shizuku.isPreV11()) {
             statusView.text = "Shizuku is too old, update it from its own app"
             return
