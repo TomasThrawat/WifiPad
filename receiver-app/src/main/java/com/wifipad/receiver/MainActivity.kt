@@ -60,6 +60,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        installCrashLogger()
         FileLogger.log(this, "ENTER — receiver app opened")
 
         val layout = LinearLayout(this).apply {
@@ -96,6 +97,20 @@ class MainActivity : AppCompatActivity() {
                 mainHandler.postDelayed(this, 1000)
             }
         }, 1000)
+    }
+
+    private fun installCrashLogger() {
+        // Java/Android standard chained-handler pattern: wrap the existing
+        // default handler so an uncaught exception on any thread gets written
+        // to the same Download log before the normal crash/kill proceeds.
+        // A crash bypasses onDestroy, which is why EXIT never gets logged for
+        // a crashed session — this call is what records the reason instead.
+        val previous = Thread.getDefaultUncaughtExceptionHandler()
+        val appContext = applicationContext
+        Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
+            FileLogger.log(appContext, "CRASH — ${throwable.stackTraceToString()}")
+            previous?.uncaughtException(thread, throwable)
+        }
     }
 
     private fun requestShizuku() {
