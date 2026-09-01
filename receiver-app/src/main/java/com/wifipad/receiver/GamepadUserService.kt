@@ -1,6 +1,6 @@
 package com.wifipad.receiver
 
-import android.os.Process
+import android.os.Process as AndroidProcess
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetSocketAddress
@@ -141,6 +141,6 @@ class GamepadUserService : IGamepadService.Stub() {
 
     override fun destroy() {
         stop()
-        Process.killProcess(Process.myPid())
+        AndroidProcess.killProcess(AndroidProcess.myPid())
     }
 }
