@@ -9,6 +9,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.os.RemoteException
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -37,7 +38,15 @@ class MainActivity : AppCompatActivity() {
     private val connection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName, binder: IBinder) {
             service = IGamepadService.Stub.asInterface(binder)
-            service?.start(port)
+            try {
+                service?.start(port)
+            } catch (e: RemoteException) {
+                // Remote (Shizuku user service) process died/never came up before this
+                // call landed. Drop the stale binder instead of crashing the caller —
+                // see developer.android.com AIDL guidance: always trap RemoteException
+                // from calls on a bound service.
+                service = null
+            }
             refreshStatus()
         }
         override fun onServiceDisconnected(name: ComponentName) {
@@ -58,7 +67,14 @@ class MainActivity : AppCompatActivity() {
         val stopBtn = Button(this).apply { text = "Stop" }
 
         startBtn.setOnClickListener { requestShizuku() }
-        stopBtn.setOnClickListener { service?.stop(); refreshStatus() }
+        stopBtn.setOnClickListener {
+            try {
+                service?.stop()
+            } catch (e: RemoteException) {
+                service = null
+            }
+            refreshStatus()
+        }
 
         layout.addView(statusView)
         layout.addView(startBtn)
@@ -95,10 +111,20 @@ class MainActivity : AppCompatActivity() {
 
     private fun refreshStatus() {
         val s = service
-        statusView.text = if (s != null && s.isRunning()) {
-            "Listening on ${localIp()}:$port\nPackets received: ${s.packetsReceived()}"
-        } else {
-            "IP: ${localIp()}   Port: $port\nNot running. ${s?.lastError().orEmpty()}"
+        statusView.text = try {
+            if (s != null && s.isRunning()) {
+                "Listening on ${localIp()}:$port\nPackets received: ${s.packetsReceived()}"
+            } else {
+                "IP: ${localIp()}   Port: $port\nNot running. ${s?.lastError().orEmpty()}"
+            }
+        } catch (e: RemoteException) {
+            // The polling tick below runs every second; if the remote process died
+            // between the previous tick and this one every one of these calls
+            // (isRunning/packetsReceived/lastError) throws RemoteException on the
+            // main thread. Without this guard that crashed the whole activity once
+            // a second until the process was rebound.
+            service = null
+            "IP: ${localIp()}   Port: $port\nService process died. Press Start to retry."
         }
     }
 
