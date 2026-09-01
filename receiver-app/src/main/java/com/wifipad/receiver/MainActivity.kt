@@ -60,6 +60,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        FileLogger.log(this, "ENTER — receiver app opened")
 
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -146,6 +147,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        FileLogger.log(this, "EXIT — receiver app closed")
         Shizuku.removeRequestPermissionResultListener(permissionListener)
         super.onDestroy()
     }
