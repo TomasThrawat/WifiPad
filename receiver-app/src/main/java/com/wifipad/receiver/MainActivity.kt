@@ -40,18 +40,21 @@ class MainActivity : AppCompatActivity() {
             service = IGamepadService.Stub.asInterface(binder)
             try {
                 service?.start(port)
+                FileLogger.log(this@MainActivity, "START — gamepad service running on port $port")
             } catch (e: RemoteException) {
                 // Remote (Shizuku user service) process died/never came up before this
                 // call landed. Drop the stale binder instead of crashing the caller —
                 // see developer.android.com AIDL guidance: always trap RemoteException
                 // from calls on a bound service.
                 service = null
+                FileLogger.log(this@MainActivity, "START FAILED — ${e.message}")
             }
             refreshStatus()
         }
         override fun onServiceDisconnected(name: ComponentName) {
             service = null
             statusView.text = "Service disconnected"
+            FileLogger.log(this@MainActivity, "STOP — service disconnected unexpectedly")
         }
     }
 
@@ -70,8 +73,10 @@ class MainActivity : AppCompatActivity() {
         stopBtn.setOnClickListener {
             try {
                 service?.stop()
+                FileLogger.log(this, "STOP — user pressed Stop")
             } catch (e: RemoteException) {
                 service = null
+                FileLogger.log(this, "STOP CALL FAILED — ${e.message}")
             }
             refreshStatus()
         }
@@ -124,6 +129,7 @@ class MainActivity : AppCompatActivity() {
             // main thread. Without this guard that crashed the whole activity once
             // a second until the process was rebound.
             service = null
+            FileLogger.log(this, "STOP — service process died unexpectedly (${e.message})")
             "IP: ${localIp()}   Port: $port\nService process died. Press Start to retry."
         }
     }
