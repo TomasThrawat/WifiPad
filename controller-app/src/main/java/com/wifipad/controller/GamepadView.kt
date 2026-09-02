@@ -60,26 +60,28 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         stickBase = Circle(w * 0.22f, h * 0.65f, stickRadius)
         stickKnob = PointF(stickBase.cx, stickBase.cy)
 
-        val btn = s * 0.075f
+        val btn = s * 0.06f              // half-size of each button (was 0.075, shrunk to leave room for a real gap)
+        val btnGap = s * 0.025f          // visible gap between two adjacent buttons
+        val btnSpacing = 2f * btn + btnGap   // center-to-center distance (was just `btn`, which made edges touch/overlap)
 
         // D-pad, top-left -- reachable by sliding the same thumb up.
         val dpadCx = w * 0.22f
         val dpadCy = h * 0.24f
         dpadButtons.clear()
-        dpadButtons += Rect2(sq(dpadCx, dpadCy - btn, btn), 1, "^")           // up
-        dpadButtons += Rect2(sq(dpadCx + btn, dpadCy, btn), 3, ">")           // right
-        dpadButtons += Rect2(sq(dpadCx, dpadCy + btn, btn), 5, "v")           // down
-        dpadButtons += Rect2(sq(dpadCx - btn, dpadCy, btn), 7, "<")           // left
+        dpadButtons += Rect2(sq(dpadCx, dpadCy - btnSpacing, btn), 1, "^")           // up
+        dpadButtons += Rect2(sq(dpadCx + btnSpacing, dpadCy, btn), 3, ">")           // right
+        dpadButtons += Rect2(sq(dpadCx, dpadCy + btnSpacing, btn), 5, "v")           // down
+        dpadButtons += Rect2(sq(dpadCx - btnSpacing, dpadCy, btn), 7, "<")           // left
 
         // Triangle/Circle/Cross/Square, bottom-right -- where the right stick
         // used to sit, so the right thumb keeps the same resting spot.
         val faceCx = w * 0.78f
         val faceCy = h * 0.65f
         faceButtons.clear()
-        faceButtons += Rect2(sq(faceCx, faceCy - btn, btn), ButtonBit.Y, "△")
-        faceButtons += Rect2(sq(faceCx + btn, faceCy, btn), ButtonBit.B, "○")
-        faceButtons += Rect2(sq(faceCx, faceCy + btn, btn), ButtonBit.A, "✕")
-        faceButtons += Rect2(sq(faceCx - btn, faceCy, btn), ButtonBit.X, "□")
+        faceButtons += Rect2(sq(faceCx, faceCy - btnSpacing, btn), ButtonBit.Y, "△")
+        faceButtons += Rect2(sq(faceCx + btnSpacing, faceCy, btn), ButtonBit.B, "○")
+        faceButtons += Rect2(sq(faceCx, faceCy + btnSpacing, btn), ButtonBit.A, "✕")
+        faceButtons += Rect2(sq(faceCx - btnSpacing, faceCy, btn), ButtonBit.X, "□")
 
         // Shoulder buttons L1/R1, top corners.
         val shW = w * 0.16f
