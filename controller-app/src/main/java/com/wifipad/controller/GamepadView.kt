@@ -13,10 +13,11 @@ import kotlin.math.min
 import kotlin.math.roundToInt
 
 /**
- * Single-joystick layout: one analog stick (movement), a D-pad, the Cross/Circle
- * (X/O) face buttons, and shoulder buttons/triggers. Share/Options/PS were
- * dropped -- this controller has no system buttons. All controls write directly
- * into [state]; the caller is responsible for sending it over the network.
+ * Single-joystick layout: one analog stick (movement), a D-pad, the four
+ * Triangle/Circle/Cross/Square face buttons, and shoulder buttons/triggers.
+ * Share/Options/PS were dropped -- this controller has no system buttons. All
+ * controls write directly into [state]; the caller is responsible for sending
+ * it over the network.
  */
 class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
 
@@ -70,13 +71,15 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         dpadButtons += Rect2(sq(dpadCx, dpadCy + btn, btn), 5, "v")           // down
         dpadButtons += Rect2(sq(dpadCx - btn, dpadCy, btn), 7, "<")           // left
 
-        // X / O face buttons, bottom-right -- where the right stick used to sit,
-        // so the right thumb keeps the same resting spot.
+        // Triangle/Circle/Cross/Square, bottom-right -- where the right stick
+        // used to sit, so the right thumb keeps the same resting spot.
         val faceCx = w * 0.78f
         val faceCy = h * 0.65f
         faceButtons.clear()
-        faceButtons += Rect2(sq(faceCx - btn, faceCy, btn), ButtonBit.A, "X")
-        faceButtons += Rect2(sq(faceCx + btn, faceCy, btn), ButtonBit.B, "O")
+        faceButtons += Rect2(sq(faceCx, faceCy - btn, btn), ButtonBit.Y, "△")
+        faceButtons += Rect2(sq(faceCx + btn, faceCy, btn), ButtonBit.B, "○")
+        faceButtons += Rect2(sq(faceCx, faceCy + btn, btn), ButtonBit.A, "✕")
+        faceButtons += Rect2(sq(faceCx - btn, faceCy, btn), ButtonBit.X, "□")
 
         // Shoulder buttons L1/R1, top corners.
         val shW = w * 0.16f
