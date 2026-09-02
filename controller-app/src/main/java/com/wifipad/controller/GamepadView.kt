@@ -9,14 +9,14 @@ import android.util.AttributeSet
 import android.view.MotionEvent
 import android.view.View
 import kotlin.math.hypot
-import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
 
 /**
- * Draws and drives a PS4-style layout: two analog sticks, a D-pad, four face
- * buttons, shoulder buttons/triggers and Share/Options/PS. All controls write
- * directly into [state]; the caller is responsible for sending it over the network.
+ * Single-joystick layout: one analog stick (movement), a D-pad, the Cross/Circle
+ * (X/O) face buttons, and shoulder buttons/triggers. Share/Options/PS were
+ * dropped -- this controller has no system buttons. All controls write directly
+ * into [state]; the caller is responsible for sending it over the network.
  */
 class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
 
@@ -25,20 +25,16 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
     private data class Circle(val cx: Float, val cy: Float, val r: Float)
     private data class Rect2(val r: RectF, val bit: Int, val label: String)
 
-    private lateinit var leftStickBase: Circle
-    private lateinit var rightStickBase: Circle
+    private lateinit var stickBase: Circle
     private var stickRadius = 0f
 
-    private var leftStickPointer = -1
-    private var rightStickPointer = -1
-    private var leftKnob = PointF(0f, 0f)
-    private var rightKnob = PointF(0f, 0f)
+    private var stickPointer = -1
+    private var stickKnob = PointF(0f, 0f)
 
     private val faceButtons = mutableListOf<Rect2>()
     private val dpadButtons = mutableListOf<Rect2>()
     private val shoulderButtons = mutableListOf<Rect2>()
     private val triggerButtons = mutableListOf<Rect2>()
-    private val systemButtons = mutableListOf<Rect2>()
 
     /** Which pointer id is currently holding down which button rect, so multi-touch works. */
     private val activePointerToRect = mutableMapOf<Int, Rect2>()
@@ -59,30 +55,28 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         val s = min(w, h).toFloat()
         stickRadius = s * 0.16f
 
-        leftStickBase = Circle(w * 0.20f, h * 0.62f, stickRadius)
-        rightStickBase = Circle(w * 0.80f, h * 0.62f, stickRadius)
-        leftKnob = PointF(leftStickBase.cx, leftStickBase.cy)
-        rightKnob = PointF(rightStickBase.cx, rightStickBase.cy)
+        // Joystick, bottom-left -- thumb rests here.
+        stickBase = Circle(w * 0.22f, h * 0.65f, stickRadius)
+        stickKnob = PointF(stickBase.cx, stickBase.cy)
 
         val btn = s * 0.075f
 
-        // D-pad, above the left stick.
-        val dpadCx = w * 0.20f
-        val dpadCy = h * 0.28f
+        // D-pad, top-left -- reachable by sliding the same thumb up.
+        val dpadCx = w * 0.22f
+        val dpadCy = h * 0.24f
         dpadButtons.clear()
         dpadButtons += Rect2(sq(dpadCx, dpadCy - btn, btn), 1, "^")           // up
         dpadButtons += Rect2(sq(dpadCx + btn, dpadCy, btn), 3, ">")           // right
         dpadButtons += Rect2(sq(dpadCx, dpadCy + btn, btn), 5, "v")           // down
         dpadButtons += Rect2(sq(dpadCx - btn, dpadCy, btn), 7, "<")           // left
 
-        // Face buttons (Triangle/Circle/Cross/Square), above the right stick.
-        val faceCx = w * 0.80f
-        val faceCy = h * 0.28f
+        // X / O face buttons, bottom-right -- where the right stick used to sit,
+        // so the right thumb keeps the same resting spot.
+        val faceCx = w * 0.78f
+        val faceCy = h * 0.65f
         faceButtons.clear()
-        faceButtons += Rect2(sq(faceCx, faceCy - btn, btn), ButtonBit.Y, "△")
-        faceButtons += Rect2(sq(faceCx + btn, faceCy, btn), ButtonBit.B, "○")
-        faceButtons += Rect2(sq(faceCx, faceCy + btn, btn), ButtonBit.A, "✕")
-        faceButtons += Rect2(sq(faceCx - btn, faceCy, btn), ButtonBit.X, "□")
+        faceButtons += Rect2(sq(faceCx - btn, faceCy, btn), ButtonBit.A, "X")
+        faceButtons += Rect2(sq(faceCx + btn, faceCy, btn), ButtonBit.B, "O")
 
         // Shoulder buttons L1/R1, top corners.
         val shW = w * 0.16f
@@ -95,15 +89,6 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         triggerButtons.clear()
         triggerButtons += Rect2(RectF(w * 0.02f, h * 0.02f + shH + 8, w * 0.02f + shW, h * 0.02f + 2 * shH + 8), -1, "L2")
         triggerButtons += Rect2(RectF(w * 0.98f - shW, h * 0.02f + shH + 8, w * 0.98f, h * 0.02f + 2 * shH + 8), -2, "R2")
-
-        // Share / PS / Options, top center.
-        val sysW = w * 0.09f
-        val sysH = h * 0.05f
-        val midY = h * 0.03f
-        systemButtons.clear()
-        systemButtons += Rect2(RectF(w * 0.5f - sysW * 1.8f, midY, w * 0.5f - sysW * 0.8f, midY + sysH), ButtonBit.SELECT, "Share")
-        systemButtons += Rect2(RectF(w * 0.5f - sysW / 2, midY, w * 0.5f + sysW / 2, midY + sysH), ButtonBit.MODE, "PS")
-        systemButtons += Rect2(RectF(w * 0.5f + sysW * 0.8f, midY, w * 0.5f + sysW * 1.8f, midY + sysH), ButtonBit.START, "Opt")
     }
 
     private fun sq(cx: Float, cy: Float, half: Float) = RectF(cx - half, cy - half, cx + half, cy + half)
@@ -111,10 +96,9 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
     override fun onDraw(canvas: Canvas) {
         canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), bgPaint)
 
-        drawStick(canvas, leftStickBase, leftKnob)
-        drawStick(canvas, rightStickBase, rightKnob)
+        drawStick(canvas, stickBase, stickKnob)
 
-        for (list in listOf(dpadButtons, faceButtons, shoulderButtons, triggerButtons, systemButtons)) {
+        for (list in listOf(dpadButtons, faceButtons, shoulderButtons, triggerButtons)) {
             for (r in list) drawButton(canvas, r)
         }
     }
@@ -140,9 +124,8 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_POINTER_UP -> handleUp(event, index)
             MotionEvent.ACTION_CANCEL -> {
-                leftStickPointer = -1; rightStickPointer = -1
-                leftKnob = PointF(leftStickBase.cx, leftStickBase.cy)
-                rightKnob = PointF(rightStickBase.cx, rightStickBase.cy)
+                stickPointer = -1
+                stickKnob = PointF(stickBase.cx, stickBase.cy)
                 activePointerToRect.clear()
                 state.buttons = 0; state.leftTrigger = 0; state.rightTrigger = 0
                 state.leftX = 0; state.leftY = 0; state.rightX = 0; state.rightY = 0
@@ -157,14 +140,9 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         val x = event.getX(index)
         val y = event.getY(index)
 
-        if (inCircle(x, y, leftStickBase) && leftStickPointer == -1) {
-            leftStickPointer = id
-            updateStick(x, y, leftStickBase) { dx, dy -> state.leftX = dx; state.leftY = dy; leftKnob = PointF(leftStickBase.cx + dx, leftStickBase.cy + dy) }
-            return
-        }
-        if (inCircle(x, y, rightStickBase) && rightStickPointer == -1) {
-            rightStickPointer = id
-            updateStick(x, y, rightStickBase) { dx, dy -> state.rightX = dx; state.rightY = dy; rightKnob = PointF(rightStickBase.cx + dx, rightStickBase.cy + dy) }
+        if (inCircle(x, y, stickBase) && stickPointer == -1) {
+            stickPointer = id
+            updateStick(x, y, stickBase) { dx, dy -> state.leftX = dx; state.leftY = dy; stickKnob = PointF(stickBase.cx + dx, stickBase.cy + dy) }
             return
         }
         val rect = findRect(x, y) ?: return
@@ -176,24 +154,17 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         val id = event.getPointerId(index)
         val x = event.getX(index)
         val y = event.getY(index)
-        if (id == leftStickPointer) {
-            updateStick(x, y, leftStickBase) { dx, dy -> state.leftX = dx; state.leftY = dy; leftKnob = PointF(leftStickBase.cx + dx, leftStickBase.cy + dy) }
-        } else if (id == rightStickPointer) {
-            updateStick(x, y, rightStickBase) { dx, dy -> state.rightX = dx; state.rightY = dy; rightKnob = PointF(rightStickBase.cx + dx, rightStickBase.cy + dy) }
+        if (id == stickPointer) {
+            updateStick(x, y, stickBase) { dx, dy -> state.leftX = dx; state.leftY = dy; stickKnob = PointF(stickBase.cx + dx, stickBase.cy + dy) }
         }
     }
 
     private fun handleUp(event: MotionEvent, index: Int) {
         val id = event.getPointerId(index)
-        if (id == leftStickPointer) {
-            leftStickPointer = -1
-            leftKnob = PointF(leftStickBase.cx, leftStickBase.cy)
+        if (id == stickPointer) {
+            stickPointer = -1
+            stickKnob = PointF(stickBase.cx, stickBase.cy)
             state.leftX = 0; state.leftY = 0
-        }
-        if (id == rightStickPointer) {
-            rightStickPointer = -1
-            rightKnob = PointF(rightStickBase.cx, rightStickBase.cy)
-            state.rightX = 0; state.rightY = 0
         }
         activePointerToRect.remove(id)?.let { applyRect(it, false) }
     }
@@ -208,7 +179,7 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
     }
 
     private fun findRect(x: Float, y: Float): Rect2? {
-        for (list in listOf(dpadButtons, faceButtons, shoulderButtons, triggerButtons, systemButtons)) {
+        for (list in listOf(dpadButtons, faceButtons, shoulderButtons, triggerButtons)) {
             for (r in list) if (r.r.contains(x, y)) return r
         }
         return null
