@@ -9,7 +9,7 @@ import java.util.concurrent.atomic.AtomicLong
 
 /**
  * Runs in the separate process Shizuku spawns with shell (uid 2000) privilege via
- * Shizuku.bindUserService() — Shizuku's currently-recommended replacement for the
+ * Shizuku.bindUserService() -- Shizuku's currently-recommended replacement for the
  * deprecated Shizuku#newProcess text-pipe API (see RikkaApps/Shizuku-API README).
  *
  * It owns both the `uinput` child process and the UDP socket so the whole
@@ -34,6 +34,24 @@ class GamepadUserService : IGamepadService.Stub() {
                 .redirectErrorStream(true)
                 .start()
             uinputProcess = proc
+
+            // uinput's stdout (merged with stderr above) must be drained continuously.
+            // java.lang.Process's own docs warn that failing to read a subprocess's
+            // output pipe can block -- even deadlock -- it once the OS pipe buffer
+            // fills (source: developer.android.com/reference/kotlin/java/lang/Process).
+            // Left undrained here, uinput eventually blocks trying to write and stops
+            // reading any further commands from its stdin -- so every button/stick
+            // packet after that point gets received and counted by receiveLoop() same
+            // as before, but silently has zero effect because the frozen uinput
+            // process never gets to act on the injected events.
+            Thread {
+                try {
+                    proc.inputStream.bufferedReader().forEachLine { /* discard */ }
+                } catch (_: Exception) {
+                    // Expected once the process exits and the pipe closes.
+                }
+            }.apply { isDaemon = true; name = "uinput-drain"; start() }
+
             val pad = UinputGamepad(proc.outputStream)
             pad.register()
 
