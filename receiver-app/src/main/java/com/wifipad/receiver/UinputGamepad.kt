@@ -21,7 +21,7 @@ import java.io.OutputStream
  *   ABS_Z/ABS_RZ  -> AXIS_LTRIGGER/AXIS_RTRIGGER
  * Spoofing this specific, already-recognized VID/PID means the device gets a
  * fully correct mapping without installing any file into /system (which would
- * need root we don't have) — Android just uses the layout it already ships with.
+ * need root we don't have) -- Android just uses the layout it already ships with.
  */
 class UinputGamepad(private val out: OutputStream) {
 
@@ -107,8 +107,14 @@ class UinputGamepad(private val out: OutputStream) {
         })
     }
 
+    // Logs the exact JSON object handed to uinput's stdin right before it goes out.
+    // uinput's own parser errors ("Error reading in object, ignoring.") never say
+    // which field tripped it, so this is the only way to see precisely which
+    // register/delay/inject payload uinput choked on.
     private fun write(obj: JSONObject) {
-        out.write(obj.toString().toByteArray())
+        val json = obj.toString()
+        FileLogger.logRaw("UINPUT WRITE - $json")
+        out.write(json.toByteArray())
         out.write('\n'.code)
         out.flush()
     }
