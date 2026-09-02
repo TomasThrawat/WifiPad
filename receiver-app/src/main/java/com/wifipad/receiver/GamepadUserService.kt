@@ -44,21 +44,40 @@ class GamepadUserService : IGamepadService.Stub() {
             // packet after that point gets received and counted by receiveLoop() same
             // as before, but silently has zero effect because the frozen uinput
             // process never gets to act on the injected events.
+            //
+            // Every line is also logged (UINPUT OUTPUT) instead of just discarded --
+            // uinput only writes to this stream on error, so a line here is itself a
+            // diagnostic signal, not just plumbing. And when forEachLine returns, that
+            // means EOF on the pipe, i.e. uinput closed stdout, which in practice means
+            // the process is exiting/dead -- that's the earliest, cheapest point to
+            // detect the death that otherwise only shows up later as a broken pad.inject()
+            // write ("Stream closed"), so stop() is triggered right here instead of
+            // waiting for the next packet to fail.
             Thread {
                 try {
-                    proc.inputStream.bufferedReader().forEachLine { /* discard */ }
+                    proc.inputStream.bufferedReader().forEachLine { line ->
+                        FileLogger.logRaw("UINPUT OUTPUT - $line")
+                    }
                 } catch (_: Exception) {
                     // Expected once the process exits and the pipe closes.
+                }
+                val exitCode = try { proc.waitFor() } catch (_: Exception) { -1 }
+                FileLogger.logRaw("UINPUT PROCESS ENDED - exit code: $exitCode")
+                if (running.get()) {
+                    error = "uinput process ended (exit code: $exitCode)"
+                    stop()
                 }
             }.apply { isDaemon = true; name = "uinput-drain"; start() }
 
             val pad = UinputGamepad(proc.outputStream)
             pad.register()
+            FileLogger.logRaw("UINPUT REGISTERED - vid=0x045e pid=0x028e")
 
             val sock = DatagramSocket(null)
             sock.reuseAddress = true
             sock.bind(InetSocketAddress(port))
             socket = sock
+            FileLogger.logRaw("START - service listening on port $port")
 
             running.set(true)
             Thread { receiveLoop(sock, pad) }.apply {
@@ -109,6 +128,7 @@ class GamepadUserService : IGamepadService.Stub() {
         events += Triple("EV_ABS", "ABS_RZ", rt)
 
         if (dpad != lastDpad) {
+            FileLogger.logRaw("DPAD CHANGED - $lastDpad -> $dpad")
             val (hx, hy) = hatFor(dpad)
             events += Triple("EV_ABS", "ABS_HAT0X", hx)
             events += Triple("EV_ABS", "ABS_HAT0Y", hy)
@@ -124,7 +144,19 @@ class GamepadUserService : IGamepadService.Stub() {
             lastButtons = buttons
         }
 
-        pad.inject(events)
+        try {
+            pad.inject(events)
+        } catch (e: Exception) {
+            // The stream to uinput's stdin is gone (process died, or the OS pipe was
+            // torn down) -- writing to it again on every subsequent packet would just
+            // repeat the same failure at up to 60 Hz for nothing. Log it once, surface
+            // it as the service's error state, and shut the pipeline down instead of
+            // spinning; the drain thread above independently detects a dead uinput
+            // process too, so whichever notices first wins -- stop() is idempotent.
+            FileLogger.logRaw("INJECT ERROR - ${e.message ?: e.javaClass.simpleName}")
+            error = "inject failed: ${e.message ?: e.javaClass.simpleName}"
+            stop()
+        }
     }
 
     private fun hatFor(dpad: Int): Pair<Int, Int> = when (dpad) {
@@ -143,7 +175,13 @@ class GamepadUserService : IGamepadService.Stub() {
     )
 
     override fun stop() {
-        running.set(false)
+        // CAS guard: stop() can now be reached from three places -- the Activity's
+        // Stop button (Binder thread), the drain thread noticing uinput died, and
+        // handlePacket() noticing an inject failure. Without this guard a death that
+        // trips both detectors (or a Stop press racing either) would log "STOP" twice
+        // and run destroy-order cleanup twice.
+        if (!running.compareAndSet(true, false)) return
+        FileLogger.logRaw("STOP - service stopping (packets received: ${received.get()})")
         socket?.close()
         socket = null
         uinputProcess?.let {
