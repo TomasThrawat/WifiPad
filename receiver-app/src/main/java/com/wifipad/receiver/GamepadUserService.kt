@@ -119,19 +119,19 @@ class GamepadUserService : IGamepadService.Stub() {
         val rt = d[9].toInt() and 0xFF
         val dpad = d[10].toInt() and 0xFF
 
-        val events = mutableListOf<Triple<String, String, Int>>()
-        events += Triple("EV_ABS", "ABS_X", leftX)
-        events += Triple("EV_ABS", "ABS_Y", leftY)
-        events += Triple("EV_ABS", "ABS_RX", rightX)
-        events += Triple("EV_ABS", "ABS_RY", rightY)
-        events += Triple("EV_ABS", "ABS_Z", lt)
-        events += Triple("EV_ABS", "ABS_RZ", rt)
+        val events = mutableListOf<Triple<Int, Int, Int>>()
+        events += Triple(UinputGamepad.EV_ABS, UinputGamepad.ABS_X, leftX)
+        events += Triple(UinputGamepad.EV_ABS, UinputGamepad.ABS_Y, leftY)
+        events += Triple(UinputGamepad.EV_ABS, UinputGamepad.ABS_RX, rightX)
+        events += Triple(UinputGamepad.EV_ABS, UinputGamepad.ABS_RY, rightY)
+        events += Triple(UinputGamepad.EV_ABS, UinputGamepad.ABS_Z, lt)
+        events += Triple(UinputGamepad.EV_ABS, UinputGamepad.ABS_RZ, rt)
 
         if (dpad != lastDpad) {
             FileLogger.logRaw("DPAD CHANGED - $lastDpad -> $dpad")
             val (hx, hy) = hatFor(dpad)
-            events += Triple("EV_ABS", "ABS_HAT0X", hx)
-            events += Triple("EV_ABS", "ABS_HAT0Y", hy)
+            events += Triple(UinputGamepad.EV_ABS, UinputGamepad.ABS_HAT0X, hx)
+            events += Triple(UinputGamepad.EV_ABS, UinputGamepad.ABS_HAT0Y, hy)
             lastDpad = dpad
         }
 
@@ -139,7 +139,7 @@ class GamepadUserService : IGamepadService.Stub() {
             for ((bit, key) in buttonKeyMap) {
                 val was = lastButtons and bit != 0
                 val now = buttons and bit != 0
-                if (was != now) events += Triple("EV_KEY", key, if (now) 1 else 0)
+                if (was != now) events += Triple(UinputGamepad.EV_KEY, key, if (now) 1 else 0)
             }
             lastButtons = buttons
         }
@@ -166,12 +166,12 @@ class GamepadUserService : IGamepadService.Stub() {
     }
 
     private val buttonKeyMap = listOf(
-        ButtonBit.A to "BTN_A", ButtonBit.B to "BTN_B",
-        ButtonBit.X to "BTN_X", ButtonBit.Y to "BTN_Y",
-        ButtonBit.L1 to "BTN_TL", ButtonBit.R1 to "BTN_TR",
-        ButtonBit.L3 to "BTN_THUMBL", ButtonBit.R3 to "BTN_THUMBR",
-        ButtonBit.SELECT to "BTN_SELECT", ButtonBit.START to "BTN_START",
-        ButtonBit.MODE to "BTN_MODE"
+        ButtonBit.A to UinputGamepad.BTN_A, ButtonBit.B to UinputGamepad.BTN_B,
+        ButtonBit.X to UinputGamepad.BTN_X, ButtonBit.Y to UinputGamepad.BTN_Y,
+        ButtonBit.L1 to UinputGamepad.BTN_TL, ButtonBit.R1 to UinputGamepad.BTN_TR,
+        ButtonBit.L3 to UinputGamepad.BTN_THUMBL, ButtonBit.R3 to UinputGamepad.BTN_THUMBR,
+        ButtonBit.SELECT to UinputGamepad.BTN_SELECT, ButtonBit.START to UinputGamepad.BTN_START,
+        ButtonBit.MODE to UinputGamepad.BTN_MODE
     )
 
     override fun stop() {
