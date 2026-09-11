@@ -24,7 +24,7 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
     val state = GamepadState()
 
     private data class Circle(val cx: Float, val cy: Float, val r: Float)
-    private data class Rect2(val r: RectF, val bit: Int, val label: String)
+    private data class Rect2(val r: RectF, val bit: Int, val label: String, val circle: Boolean = false)
 
     private lateinit var stickBase: Circle
     private var stickRadius = 0f
@@ -87,13 +87,13 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         val shW = w * 0.16f
         val shH = h * 0.07f
         shoulderButtons.clear()
-        shoulderButtons += Rect2(RectF(w * 0.02f, h * 0.02f, w * 0.02f + shW, h * 0.02f + shH), ButtonBit.L1, "L1")
-        shoulderButtons += Rect2(RectF(w * 0.98f - shW, h * 0.02f, w * 0.98f, h * 0.02f + shH), ButtonBit.R1, "R1")
+        shoulderButtons += Rect2(RectF(w * 0.02f, h * 0.02f, w * 0.02f + shW, h * 0.02f + shH), ButtonBit.L1, "L1", circle = true)
+        shoulderButtons += Rect2(RectF(w * 0.98f - shW, h * 0.02f, w * 0.98f, h * 0.02f + shH), ButtonBit.R1, "R1", circle = true)
 
         // Triggers L2/R2 (simple press = 0/255, not a smooth analog drag).
         triggerButtons.clear()
-        triggerButtons += Rect2(RectF(w * 0.02f, h * 0.02f + shH + 8, w * 0.02f + shW, h * 0.02f + 2 * shH + 8), -1, "L2")
-        triggerButtons += Rect2(RectF(w * 0.98f - shW, h * 0.02f + shH + 8, w * 0.98f, h * 0.02f + 2 * shH + 8), -2, "R2")
+        triggerButtons += Rect2(RectF(w * 0.02f, h * 0.02f + shH + 8, w * 0.02f + shW, h * 0.02f + 2 * shH + 8), -1, "L2", circle = true)
+        triggerButtons += Rect2(RectF(w * 0.98f - shW, h * 0.02f + shH + 8, w * 0.98f, h * 0.02f + 2 * shH + 8), -2, "R2", circle = true)
     }
 
     private fun sq(cx: Float, cy: Float, half: Float) = RectF(cx - half, cy - half, cx + half, cy + half)
@@ -115,7 +115,13 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
 
     private fun drawButton(canvas: Canvas, r: Rect2) {
         val pressed = activePointerToRect.containsValue(r)
-        canvas.drawRoundRect(r.r, 16f, 16f, if (pressed) buttonActivePaint else buttonPaint)
+        val paint = if (pressed) buttonActivePaint else buttonPaint
+        if (r.circle) {
+            val radius = min(r.r.width(), r.r.height()) / 2f
+            canvas.drawCircle(r.r.centerX(), r.r.centerY(), radius, paint)
+        } else {
+            canvas.drawRoundRect(r.r, 16f, 16f, paint)
+        }
         canvas.drawText(r.label, r.r.centerX(), r.r.centerY() + textPaint.textSize / 3, textPaint)
     }
 
@@ -194,7 +200,7 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         hypot((x - c.cx).toDouble(), (y - c.cy).toDouble()) <= c.r * 1.6
 
     private fun updateStick(x: Float, y: Float, base: Circle, apply: (Byte, Byte) -> Unit) {
-        var dx = x - base.cx
+       var dx = x - base.cx
         var dy = y - base.cy
         val dist = hypot(dx.toDouble(), dy.toDouble()).toFloat()
         if (dist > base.r) {
