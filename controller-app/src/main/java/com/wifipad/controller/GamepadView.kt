@@ -83,17 +83,23 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         faceButtons += Rect2(sq(faceCx, faceCy + btnSpacing, btn), ButtonBit.A, "✕")
         faceButtons += Rect2(sq(faceCx - btnSpacing, faceCy, btn), ButtonBit.X, "□")
 
-        // Shoulder buttons L1/R1, top corners.
-        val shW = w * 0.16f
-        val shH = h * 0.07f
+        // Shoulder/trigger buttons L1/R1/L2/R2, top corners -- square hit boxes so the
+        // circle drawn in drawButton() isn't clipped down to a thin oblong's height.
+        val shHalf = s * 0.055f
+        val shSpacing = 2f * shHalf + s * 0.02f
+        val shLx = w * 0.02f + shHalf
+        val shRx = w * 0.98f - shHalf
+        val shTopY = h * 0.02f + shHalf
+        val shBottomY = shTopY + shSpacing
+
         shoulderButtons.clear()
-        shoulderButtons += Rect2(RectF(w * 0.02f, h * 0.02f, w * 0.02f + shW, h * 0.02f + shH), ButtonBit.L1, "L1", circle = true)
-        shoulderButtons += Rect2(RectF(w * 0.98f - shW, h * 0.02f, w * 0.98f, h * 0.02f + shH), ButtonBit.R1, "R1", circle = true)
+        shoulderButtons += Rect2(sq(shLx, shTopY, shHalf), ButtonBit.L1, "L1", circle = true)
+        shoulderButtons += Rect2(sq(shRx, shTopY, shHalf), ButtonBit.R1, "R1", circle = true)
 
         // Triggers L2/R2 (simple press = 0/255, not a smooth analog drag).
         triggerButtons.clear()
-        triggerButtons += Rect2(RectF(w * 0.02f, h * 0.02f + shH + 8, w * 0.02f + shW, h * 0.02f + 2 * shH + 8), -1, "L2", circle = true)
-        triggerButtons += Rect2(RectF(w * 0.98f - shW, h * 0.02f + shH + 8, w * 0.98f, h * 0.02f + 2 * shH + 8), -2, "R2", circle = true)
+        triggerButtons += Rect2(sq(shLx, shBottomY, shHalf), -1, "L2", circle = true)
+        triggerButtons += Rect2(sq(shRx, shBottomY, shHalf), -2, "R2", circle = true)
     }
 
     private fun sq(cx: Float, cy: Float, half: Float) = RectF(cx - half, cy - half, cx + half, cy + half)
