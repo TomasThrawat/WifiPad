@@ -85,11 +85,15 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
 
         // Shoulder/trigger buttons L1/R1/L2/R2, top corners -- square hit boxes so the
         // circle drawn in drawButton() isn't clipped down to a thin oblong's height.
-        val shHalf = s * 0.055f
-        val shSpacing = 2f * shHalf + s * 0.02f
-        val shLx = w * 0.02f + shHalf
-        val shRx = w * 0.98f - shHalf
-        val shTopY = h * 0.02f + shHalf
+        // Position (shAnchor) stays fixed regardless of size (shHalf) so enlarging the
+        // buttons never shifts them -- shHalf is capped just under half the L1/L2 center
+        // gap (shSpacing/2) so the two don't start overlapping.
+        val shAnchor = s * 0.055f
+        val shHalf = s * 0.063f
+        val shSpacing = 2f * shAnchor + s * 0.02f
+        val shLx = w * 0.02f + shAnchor
+        val shRx = w * 0.98f - shAnchor
+        val shTopY = h * 0.02f + shAnchor
         val shBottomY = shTopY + shSpacing
 
         shoulderButtons.clear()
