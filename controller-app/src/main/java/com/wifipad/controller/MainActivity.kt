@@ -113,10 +113,12 @@ class MainActivity : AppCompatActivity() {
 
         val ipLayout = TextInputLayout(this).apply {
             hint = getString(R.string.tv_ip_hint)
-            boxCornerRadiusTopStart = dp(18).toFloat()
-            boxCornerRadiusTopEnd = dp(18).toFloat()
-            boxCornerRadiusBottomStart = dp(18).toFloat()
-            boxCornerRadiusBottomEnd = dp(18).toFloat()
+            setBoxCornerRadii(
+                dp(18).toFloat(),
+                dp(18).toFloat(),
+                dp(18).toFloat(),
+                dp(18).toFloat()
+            )
             boxStrokeWidth = dp(1)
             boxStrokeWidthFocused = dp(2)
         }
@@ -124,7 +126,7 @@ class MainActivity : AppCompatActivity() {
         ipField = TextInputEditText(this).apply {
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
             isSingleLine = true
-            text = prefs.getString("tv_ip", "")
+            setText(prefs.getString("tv_ip", ""))
             setTextSize(18f)
             setPadding(dp(16), 0, dp(16), 0)
         }
