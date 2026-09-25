@@ -83,7 +83,7 @@ class SettingsActivity : AppCompatActivity() {
             cornerRadius = dp(18)
             setOnClickListener {
                 ControlSettingsStore.reset(context)
-                rebuildContent()
+                recreate()
                 Toast.makeText(
                     context,
                     R.string.settings_reset_done,
@@ -354,7 +354,7 @@ class SettingsActivity : AppCompatActivity() {
             setTextColor(
                 MaterialColors.getColor(
                     this,
-                    com.google.android.material.R.attr.colorPrimary
+                    com.google.android.material.R.attr.colorOnPrimaryContainer
                 )
             )
         }
@@ -370,10 +370,6 @@ class SettingsActivity : AppCompatActivity() {
 
     private fun updateSliderState(group: ControlGroup, enabled: Boolean) {
         sliders[group]?.forEach { it.isEnabled = enabled }
-    }
-
-    private fun rebuildContent() {
-        recreate()
     }
 
     private fun groupLabel(group: ControlGroup) = when (group) {
