@@ -4,7 +4,8 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.ServiceConnection
 import android.content.pm.PackageManager
-import android.net.wifi.WifiManager
+import android.net.ConnectivityManager
+import java.net.Inet4Address
 import android.os.Bundle
 import android.os.Handler
 import android.os.IBinder
@@ -224,16 +225,18 @@ class MainActivity : AppCompatActivity() {
 
     private fun localIp(): String {
         return try {
-            val wifi = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
-            val ip = wifi.connectionInfo.ipAddress
-            if (ip == 0) "unknown"
-            else String.format(
-                "%d.%d.%d.%d",
-                ip and 0xFF,
-                (ip shr 8) and 0xFF,
-                (ip shr 16) and 0xFF,
-                (ip shr 24) and 0xFF
-            )
+            val connectivityManager =
+                getSystemService(ConnectivityManager::class.java)
+            val network = connectivityManager.activeNetwork
+            val ip = network
+                ?.let(connectivityManager::getLinkProperties)
+                ?.linkAddresses
+                ?.asSequence()
+                ?.map { it.address }
+                ?.filterIsInstance<Inet4Address>()
+                ?.firstOrNull { !it.isLoopbackAddress }
+                ?.hostAddress
+            ip ?: "unknown"
         } catch (_: Exception) {
             "unknown"
         }
