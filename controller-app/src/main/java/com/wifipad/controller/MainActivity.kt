@@ -5,13 +5,11 @@ import android.text.InputType
 import android.view.Gravity
 import android.view.WindowManager
 import android.widget.LinearLayout
-import android.widget.LinearLayout
-import android.widget.LinearLayout
-import android.widget.LinearLayout
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.card.MaterialCardView
+import com.google.android.material.color.DynamicColors
 import com.google.android.material.color.MaterialColors
 import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textfield.TextInputLayout
@@ -21,143 +19,176 @@ import kotlin.math.roundToInt
 class MainActivity : AppCompatActivity() {
 
     private lateinit var padView: GamepadView
-    private lateinit var statusView: TextView
-    private lateinit var ipField: EditText
+    private lateinit var statusView: MaterialTextView
     private lateinit var sender: UdpSender
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        DynamicColors.applyToActivityIfAvailable(this)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         val prefs = getSharedPreferences("wifipad", MODE_PRIVATE)
-        val surface = color(com.google.android.material.R.attr.colorSurface)
-        val surfaceContainer = color(com.google.android.material.R.attr.colorSurfaceContainer)
-        val outline = color(com.google.android.material.R.attr.colorOutlineVariant)
-        val onSurface = color(com.google.android.material.R.attr.colorOnSurface)
-
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(surface)
+            setBackgroundColor(
+                MaterialColors.getColor(
+                    this@MainActivity,
+                    com.google.android.material.R.attr.colorSurface
+                )
+            )
+            setPadding(dp(12), dp(8), dp(12), dp(12))
         }
 
         val toolbar = MaterialToolbar(this).apply {
-            title = "WiFiPad Controller"
-            setTitleTextColor(onSurface)
-            setBackgroundColor(surfaceContainer)
+            title = getString(R.string.app_name)
+            setTitleTextAppearance(
+                context,
+                com.google.android.material.R.style.TextAppearance_Material3_TitleLarge
+            )
             elevation = 0f
-            contentInsetStartWithNavigation = dp(16)
         }
-        root.addView(toolbar, LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            dp(64)
-        ))
 
-        val card = MaterialCardView(this).apply {
-            radius = dp(28).toFloat()
+        val connectionCard = MaterialCardView(this).apply {
+            radius = dp(20).toFloat()
             cardElevation = 0f
             strokeWidth = dp(1)
-            strokeColor = outline
-            setCardBackgroundColor(surfaceContainer)
+            strokeColor = MaterialColors.getColor(
+                this,
+                com.google.android.material.R.attr.colorOutlineVariant
+            )
         }
 
-        val panel = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(16), dp(12), dp(16), dp(12))
-        }
-
-        val row = LinearLayout(this).apply {
+        val connection = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(12), dp(4), dp(12), dp(4))
         }
 
-        ipField = TextInputEditText(this).apply {
+        val ipLayout = TextInputLayout(this).apply {
+            hint = getString(R.string.tv_ip_hint)
+            boxCornerRadiusTopStart = dp(14).toFloat()
+            boxCornerRadiusTopEnd = dp(14).toFloat()
+            boxCornerRadiusBottomStart = dp(14).toFloat()
+            boxCornerRadiusBottomEnd = dp(14).toFloat()
+            layoutParams = LinearLayout.LayoutParams(
+                0,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                1f
+            ).apply {
+                marginEnd = dp(8)
+            }
+        }
+
+        val ipField = TextInputEditText(this).apply {
             inputType = InputType.TYPE_CLASS_TEXT
             setSingleLine(true)
             setText(prefs.getString("tv_ip", ""))
         }
+        ipLayout.addView(ipField)
 
-        val inputLayout = TextInputLayout(this).apply {
-            hint = "TV IP address"
-            boxBackgroundMode = TextInputLayout.BOX_BACKGROUND_OUTLINE
-            endIconMode = TextInputLayout.END_ICON_CLEAR_TEXT
-        }
-        inputLayout.addView(ipField, LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT
-        ))
-
-        val connectBtn = MaterialButton(this).apply {
-            text = "Connect"
-            minHeight = dp(56)
-            insetTop = 0
-            insetBottom = 0
+        val connectButton = MaterialButton(this).apply {
+            text = getString(R.string.connect)
+            minHeight = dp(52)
+            minWidth = dp(120)
             cornerRadius = dp(18)
+            isAllCaps = false
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                dp(52)
+            )
         }
 
-        row.addView(inputLayout, LinearLayout.LayoutParams(0, dp(56), 1f))
-        row.addView(connectBtn, LinearLayout.LayoutParams(dp(132), dp(56)).apply {
-            marginStart = dp(12)
-        })
+        connection.addView(ipLayout)
+        connection.addView(connectButton)
+        connectionCard.addView(connection)
+
+        val statusCard = MaterialCardView(this).apply {
+            radius = dp(18).toFloat()
+            cardElevation = 0f
+            setCardBackgroundColor(
+                MaterialColors.getColor(
+                    this,
+                    com.google.android.material.R.attr.colorSurfaceContainer
+                )
+            )
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                topMargin = dp(8)
+                bottomMargin = dp(8)
+            }
+        }
 
         statusView = MaterialTextView(this).apply {
-            text = "Ready. Enter the TV IP and connect."
-            setTextColor(color(com.google.android.material.R.attr.colorOnSurfaceVariant))
-            textSize = 14f
-            setPadding(dp(4), dp(10), dp(4), 0)
+            text = getString(R.string.status_not_connected)
+            setTextAppearance(
+                com.google.android.material.R.style.TextAppearance_Material3_BodyLarge
+            )
+            setPadding(dp(16), dp(12), dp(16), dp(12))
         }
-
-        panel.addView(row)
-        panel.addView(statusView)
-        card.addView(panel)
-
-        root.addView(card, LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT
-        ).apply {
-            marginStart = dp(12)
-            marginEnd = dp(12)
-            topMargin = dp(10)
-            bottomMargin = dp(10)
-        })
+        statusCard.addView(statusView)
 
         padView = GamepadView(this, null)
-        root.addView(padView, LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            0,
-            1f
-        ))
+
+        root.addView(
+            toolbar,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dp(64)
+            )
+        )
+        root.addView(connectionCard)
+        root.addView(statusCard)
+        root.addView(
+            MaterialCardView(this).apply {
+                radius = dp(24).toFloat()
+                cardElevation = 0f
+                strokeWidth = dp(1)
+                strokeColor = MaterialColors.getColor(
+                    this,
+                    com.google.android.material.R.attr.colorOutlineVariant
+                )
+                addView(
+                    padView,
+                    LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.MATCH_PARENT
+                    )
+                )
+            },
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                0,
+                1f
+            )
+        )
 
         setContentView(root)
 
         sender = UdpSender(padView.state)
         sender.onError = { msg ->
-            runOnUiThread {
-                statusView.text = "Error: " + msg
-                statusView.setTextColor(color(com.google.android.material.R.attr.colorError))
-            }
+            runOnUiThread { statusView.text = getString(R.string.status_error, msg) }
         }
 
-        connectBtn.setOnClickListener {
+        connectButton.setOnClickListener {
             val host = ipField.text?.toString()?.trim().orEmpty()
             if (host.isEmpty()) {
-                statusView.text = "Enter the TV's IP"
-                statusView.setTextColor(color(com.google.android.material.R.attr.colorError))
-                ipField.requestFocus()
+                ipLayout.error = getString(R.string.enter_tv_ip)
                 return@setOnClickListener
             }
-
+            ipLayout.error = null
             prefs.edit().putString("tv_ip", host).apply()
             sender.start(host, Protocol.DEFAULT_PORT)
-            statusView.text = "Sending to " + host + ":" + Protocol.DEFAULT_PORT
-            statusView.setTextColor(color(com.google.android.material.R.attr.colorOnSurfaceVariant))
+            statusView.text = getString(
+                R.string.status_sending,
+                host,
+                Protocol.DEFAULT_PORT
+            )
         }
     }
 
-    private fun dp(value: Int): Int =
-        (value * resources.displayMetrics.density).roundToInt()
-
-    private fun color(attr: Int): Int =
-        MaterialColors.getColor(this, attr, 0)
+    private fun dp(value: Int): Int = (value * resources.displayMetrics.density).roundToInt()
 
     override fun onDestroy() {
         sender.stop()

@@ -2,10 +2,10 @@ package com.wifipad.controller
 
 import android.content.Context
 import android.graphics.Canvas
-import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.RectF
 import android.util.AttributeSet
+import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.View
 import com.google.android.material.color.MaterialColors
@@ -13,23 +13,20 @@ import kotlin.math.hypot
 import kotlin.math.min
 import kotlin.math.roundToInt
 
-/**
- * Single-joystick layout: one analog stick (movement), a D-pad, the four
- * Triangle/Circle/Cross/Square face buttons, and shoulder buttons/triggers.
- * Share/Options/PS were dropped -- this controller has no system buttons. All
- * controls write directly into [state]; the caller is responsible for sending
- * it over the network.
- */
 class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
 
     val state = GamepadState()
 
     private data class Circle(val cx: Float, val cy: Float, val r: Float)
-    private data class Rect2(val r: RectF, val bit: Int, val label: String, val circle: Boolean = false)
+    private data class Rect2(
+        val r: RectF,
+        val bit: Int,
+        val label: String,
+        val circle: Boolean = false
+    )
 
     private lateinit var stickBase: Circle
     private var stickRadius = 0f
-
     private var stickPointer = -1
     private var stickKnob = PointF(0f, 0f)
 
@@ -37,66 +34,40 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
     private val dpadButtons = mutableListOf<Rect2>()
     private val shoulderButtons = mutableListOf<Rect2>()
     private val triggerButtons = mutableListOf<Rect2>()
-
-    /** Which pointer id is currently holding down which button rect, so multi-touch works. */
     private val activePointerToRect = mutableMapOf<Int, Rect2>()
 
-    private val bgColor =
-        MaterialColors.getColor(context, com.google.android.material.R.attr.colorSurface, Color.BLACK)
-    private val surfaceContainerColor =
-        MaterialColors.getColor(context, com.google.android.material.R.attr.colorSurfaceContainer, Color.DKGRAY)
-    private val surfaceHighColor =
-        MaterialColors.getColor(context, com.google.android.material.R.attr.colorSurfaceContainerHigh, Color.GRAY)
-    private val primaryContainerColor =
-        MaterialColors.getColor(context, com.google.android.material.R.attr.colorPrimaryContainer, Color.DKGRAY)
-    private val onPrimaryContainerColor =
-        MaterialColors.getColor(context, com.google.android.material.R.attr.colorOnPrimaryContainer, Color.WHITE)
-    private val primaryColor =
-        MaterialColors.getColor(context, com.google.android.material.R.attr.colorPrimary, Color.LTGRAY)
-    private val onSurfaceColor =
-        MaterialColors.getColor(context, com.google.android.material.R.attr.colorOnSurface, Color.WHITE)
-    private val outlineColor =
-        MaterialColors.getColor(context, com.google.android.material.R.attr.colorOutlineVariant, Color.GRAY)
-
-    private val bgPaint = Paint().apply { color = bgColor }
-
-    private val stickBasePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = surfaceHighColor
-        style = Paint.Style.FILL
-    }
-
-    private val stickOutlinePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = outlineColor
-        style = Paint.Style.STROKE
-        strokeWidth = 2f
-    }
-
-    private val stickKnobPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = primaryColor
-        style = Paint.Style.FILL
-    }
-
-    private val buttonPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = surfaceContainerColor
-        style = Paint.Style.FILL
-    }
-
-    private val buttonActivePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = primaryContainerColor
-        style = Paint.Style.FILL
-    }
-
-    private val buttonStrokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = outlineColor
-        style = Paint.Style.STROKE
-        strokeWidth = 2f
-    }
-
+    private val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val stickBasePaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val stickKnobPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val buttonPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val buttonActivePaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = onSurfaceColor
         textAlign = Paint.Align.CENTER
-        typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
-        subpixelText = true
+    }
+
+    private val surfaceColor by lazy {
+        MaterialColors.getColor(this, com.google.android.material.R.attr.colorSurface)
+    }
+    private val surfaceContainerColor by lazy {
+        MaterialColors.getColor(
+            this,
+            com.google.android.material.R.attr.colorSurfaceContainerHighest
+        )
+    }
+    private val primaryContainerColor by lazy {
+        MaterialColors.getColor(
+            this,
+            com.google.android.material.R.attr.colorPrimaryContainer
+        )
+    }
+    private val onSurfaceColor by lazy {
+        MaterialColors.getColor(this, com.google.android.material.R.attr.colorOnSurface)
+    }
+    private val onPrimaryContainerColor by lazy {
+        MaterialColors.getColor(
+            this,
+            com.google.android.material.R.attr.colorOnPrimaryContainer
+        )
     }
 
     private class PointF(var x: Float, var y: Float)
@@ -106,38 +77,29 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         val s = min(w, h).toFloat()
         stickRadius = s * 0.16f
 
-        // Joystick, bottom-left -- thumb rests here.
         stickBase = Circle(w * 0.22f, h * 0.65f, stickRadius)
         stickKnob = PointF(stickBase.cx, stickBase.cy)
 
-        val btn = s * 0.06f              // half-size of each button (was 0.075, shrunk to leave room for a real gap)
-        val btnGap = s * 0.025f          // visible gap between two adjacent buttons
-        val btnSpacing = 2f * btn + btnGap   // center-to-center distance (was just `btn`, which made edges touch/overlap)
+        val btn = s * 0.06f
+        val btnGap = s * 0.025f
+        val btnSpacing = 2f * btn + btnGap
 
-        // D-pad, top-left -- reachable by sliding the same thumb up.
         val dpadCx = w * 0.22f
         val dpadCy = h * 0.24f
         dpadButtons.clear()
-        dpadButtons += Rect2(sq(dpadCx, dpadCy - btnSpacing, btn), 1, "^")           // up
-        dpadButtons += Rect2(sq(dpadCx + btnSpacing, dpadCy, btn), 3, ">")           // right
-        dpadButtons += Rect2(sq(dpadCx, dpadCy + btnSpacing, btn), 5, "v")           // down
-        dpadButtons += Rect2(sq(dpadCx - btnSpacing, dpadCy, btn), 7, "<")           // left
+        dpadButtons += Rect2(sq(dpadCx, dpadCy - btnSpacing, btn), 1, "↑")
+        dpadButtons += Rect2(sq(dpadCx + btnSpacing, dpadCy, btn), 3, "→")
+        dpadButtons += Rect2(sq(dpadCx, dpadCy + btnSpacing, btn), 5, "↓")
+        dpadButtons += Rect2(sq(dpadCx - btnSpacing, dpadCy, btn), 7, "←")
 
-        // Triangle/Circle/Cross/Square, bottom-right -- where the right stick
-        // used to sit, so the right thumb keeps the same resting spot.
         val faceCx = w * 0.78f
         val faceCy = h * 0.65f
         faceButtons.clear()
         faceButtons += Rect2(sq(faceCx, faceCy - btnSpacing, btn), ButtonBit.Y, "△")
         faceButtons += Rect2(sq(faceCx + btnSpacing, faceCy, btn), ButtonBit.B, "○")
-        faceButtons += Rect2(sq(faceCx, faceCy + btnSpacing, btn), ButtonBit.A, "✕")
+        faceButtons += Rect2(sq(faceCx, faceCy + btnSpacing, btn), ButtonBit.A, "×")
         faceButtons += Rect2(sq(faceCx - btnSpacing, faceCy, btn), ButtonBit.X, "□")
 
-        // Shoulder/trigger buttons L1/R1/L2/R2, top corners -- square hit boxes so the
-        // circle drawn in drawButton() isn't clipped down to a thin oblong's height.
-        // Position (shAnchor) stays fixed regardless of size (shHalf) so enlarging the
-        // buttons never shifts them -- shHalf is capped just under half the L1/L2 center
-        // gap (shSpacing/2) so the two don't start overlapping.
         val shAnchor = s * 0.055f
         val shHalf = s * 0.063f
         val shSpacing = 2f * shAnchor + s * 0.02f
@@ -150,19 +112,25 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         shoulderButtons += Rect2(sq(shLx, shTopY, shHalf), ButtonBit.L1, "L1", circle = true)
         shoulderButtons += Rect2(sq(shRx, shTopY, shHalf), ButtonBit.R1, "R1", circle = true)
 
-        // Triggers L2/R2 (simple press = 0/255, not a smooth analog drag).
         triggerButtons.clear()
         triggerButtons += Rect2(sq(shLx, shBottomY, shHalf), -1, "L2", circle = true)
         triggerButtons += Rect2(sq(shRx, shBottomY, shHalf), -2, "R2", circle = true)
+
+        bgPaint.color = surfaceColor
+        stickBasePaint.color = surfaceContainerColor
+        stickKnobPaint.color = primaryContainerColor
+        buttonPaint.color = surfaceContainerColor
+        buttonActivePaint.color = primaryContainerColor
+        textPaint.color = onSurfaceColor
+        textPaint.textSize = (s * 0.032f).coerceIn(24f, 48f)
     }
 
-    private fun sq(cx: Float, cy: Float, half: Float) = RectF(cx - half, cy - half, cx + half, cy + half)
+    private fun sq(cx: Float, cy: Float, half: Float) =
+        RectF(cx - half, cy - half, cx + half, cy + half)
 
     override fun onDraw(canvas: Canvas) {
         canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), bgPaint)
-
         drawStick(canvas, stickBase, stickKnob)
-
         for (list in listOf(dpadButtons, faceButtons, shoulderButtons, triggerButtons)) {
             for (r in list) drawButton(canvas, r)
         }
@@ -170,32 +138,36 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
 
     private fun drawStick(canvas: Canvas, base: Circle, knob: PointF) {
         canvas.drawCircle(base.cx, base.cy, base.r, stickBasePaint)
-        canvas.drawCircle(base.cx, base.cy, base.r, stickOutlinePaint)
-        val knobPaint = if (stickPointer == -1) stickKnobPaint else buttonActivePaint
-        canvas.drawCircle(knob.x, knob.y, base.r * 0.45f, knobPaint)
+        canvas.drawCircle(knob.x, knob.y, base.r * 0.45f, stickKnobPaint)
+
+        val indicator = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = onPrimaryContainerColor
+            alpha = 80
+        }
+        canvas.drawCircle(knob.x, knob.y, base.r * 0.18f, indicator)
     }
 
     private fun drawButton(canvas: Canvas, r: Rect2) {
         val pressed = activePointerToRect.containsValue(r)
-        val fill = if (pressed) buttonActivePaint else buttonPaint
-        val text = if (pressed) onPrimaryContainerColor else onSurfaceColor
+        val paint = if (pressed) buttonActivePaint else buttonPaint
 
         if (r.circle) {
             val radius = min(r.r.width(), r.r.height()) / 2f
-            canvas.drawCircle(r.r.centerX(), r.r.centerY(), radius, fill)
-            canvas.drawCircle(r.r.centerX(), r.r.centerY(), radius, buttonStrokePaint)
+            canvas.drawCircle(r.r.centerX(), r.r.centerY(), radius, paint)
         } else {
-            val corner = dp(18).toFloat()
-            canvas.drawRoundRect(r.r, corner, corner, fill)
-            canvas.drawRoundRect(r.r, corner, corner, buttonStrokePaint)
+            canvas.drawRoundRect(r.r, 20f, 20f, paint)
         }
 
-        textPaint.color = text
+        val labelPaint = if (pressed) {
+            Paint(textPaint).apply { color = onPrimaryContainerColor }
+        } else {
+            textPaint
+        }
         canvas.drawText(
             r.label,
             r.r.centerX(),
-            r.r.centerY() - (textPaint.ascent() + textPaint.descent()) / 2f,
-            textPaint
+            r.r.centerY() - (labelPaint.ascent() + labelPaint.descent()) / 2f,
+            labelPaint
         )
     }
 
@@ -212,8 +184,13 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
                 stickPointer = -1
                 stickKnob = PointF(stickBase.cx, stickBase.cy)
                 activePointerToRect.clear()
-                state.buttons = 0; state.leftTrigger = 0; state.rightTrigger = 0
-                state.leftX = 0; state.leftY = 0; state.rightX = 0; state.rightY = 0
+                state.buttons = 0
+                state.leftTrigger = 0
+                state.rightTrigger = 0
+                state.leftX = 0
+                state.leftY = 0
+                state.rightX = 0
+                state.rightY = 0
             }
         }
         invalidate()
@@ -227,12 +204,19 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
 
         if (inCircle(x, y, stickBase) && stickPointer == -1) {
             stickPointer = id
-            updateStick(x, y, stickBase) { dx, dy -> state.leftX = dx; state.leftY = dy; stickKnob = PointF(stickBase.cx + dx, stickBase.cy + dy) }
+            performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+            updateStick(x, y, stickBase) { dx, dy ->
+                state.leftX = dx
+                state.leftY = dy
+                stickKnob = PointF(stickBase.cx + dx, stickBase.cy + dy)
+            }
             return
         }
+
         val rect = findRect(x, y) ?: return
         activePointerToRect[id] = rect
         applyRect(rect, true)
+        performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
     }
 
     private fun handleMove(event: MotionEvent, index: Int) {
@@ -240,7 +224,11 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         val x = event.getX(index)
         val y = event.getY(index)
         if (id == stickPointer) {
-            updateStick(x, y, stickBase) { dx, dy -> state.leftX = dx; state.leftY = dy; stickKnob = PointF(stickBase.cx + dx, stickBase.cy + dy) }
+            updateStick(x, y, stickBase) { dx, dy ->
+                state.leftX = dx
+                state.leftY = dy
+                stickKnob = PointF(stickBase.cx + dx, stickBase.cy + dy)
+            }
         }
     }
 
@@ -249,16 +237,18 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         if (id == stickPointer) {
             stickPointer = -1
             stickKnob = PointF(stickBase.cx, stickBase.cy)
-            state.leftX = 0; state.leftY = 0
+            state.leftX = 0
+            state.leftY = 0
         }
         activePointerToRect.remove(id)?.let { applyRect(it, false) }
     }
 
     private fun applyRect(r: Rect2, pressed: Boolean) {
         when {
-            r.bit == -1 -> state.leftTrigger = if (pressed) 255 else 0   // L2
-            r.bit == -2 -> state.rightTrigger = if (pressed) 255 else 0  // R2
-            dpadButtons.contains(r) -> state.dpad = if (pressed) r.bit else if (state.dpad == r.bit) 0 else state.dpad
+            r.bit == -1 -> state.leftTrigger = if (pressed) 255 else 0
+            r.bit == -2 -> state.rightTrigger = if (pressed) 255 else 0
+            dpadButtons.contains(r) ->
+                state.dpad = if (pressed) r.bit else if (state.dpad == r.bit) 0 else state.dpad
             else -> state.setButton(r.bit, pressed)
         }
     }
@@ -274,18 +264,16 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         hypot((x - c.cx).toDouble(), (y - c.cy).toDouble()) <= c.r * 1.6
 
     private fun updateStick(x: Float, y: Float, base: Circle, apply: (Byte, Byte) -> Unit) {
-       var dx = x - base.cx
+        var dx = x - base.cx
         var dy = y - base.cy
         val dist = hypot(dx.toDouble(), dy.toDouble()).toFloat()
         if (dist > base.r) {
             val scale = base.r / dist
-            dx *= scale; dy *= scale
+            dx *= scale
+            dy *= scale
         }
         val nx = (dx / base.r * 127f).roundToInt().coerceIn(-127, 127)
         val ny = (dy / base.r * 127f).roundToInt().coerceIn(-127, 127)
         apply(nx.toByte(), ny.toByte())
     }
-
-    private fun dp(value: Int): Int =
-        (value * resources.displayMetrics.density).roundToInt()
 }

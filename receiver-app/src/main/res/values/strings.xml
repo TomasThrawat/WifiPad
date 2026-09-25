@@ -1,3 +1,19 @@
 <resources>
     <string name="app_name">WifiPad Receiver</string>
+    <string name="start">Start</string>
+    <string name="stop">Stop</string>
+    <string name="status_press_start">Ready</string>
+    <string name="status_press_start_with_network">IP: %1$s   Port: %2$d
+Press Start.</string>
+    <string name="status_listening">Listening on %1$s:%2$d
+Packets received: %3$d</string>
+    <string name="status_not_running">IP: %1$s   Port: %2$d
+Not running. %3$s</string>
+    <string name="status_service_died">IP: %1$s   Port: %2$d
+Service process died. Press Start to retry.</string>
+    <string name="status_shizuku_not_connected">Shizuku not connected. Open Shizuku, start it, then try again.</string>
+    <string name="status_shizuku_too_old">Shizuku is too old. Update it from the Shizuku app.</string>
+    <string name="status_shizuku_denied_before">Permission was denied before. Grant it from the Shizuku app.</string>
+    <string name="status_shizuku_denied">Shizuku permission was denied.</string>
+    <string name="status_disconnected">Service disconnected.</string>
 </resources>
