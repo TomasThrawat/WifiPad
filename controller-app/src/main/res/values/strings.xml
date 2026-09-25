@@ -1,8 +1,13 @@
 <resources>
     <string name="app_name">WifiPad Controller</string>
-    <string name="tv_ip_hint">TV IP address</string>
-    <string name="connect">Connect</string>
-    <string name="enter_tv_ip">Enter the TV IP</string>
+    <string name="tv_ip_hint">TV / Receiver IP address</string>
+    <string name="connect">Connect &amp; open controls</string>
+    <string name="connection_title">Connect to your receiver</string>
+    <string name="connection_subtitle">Enter the TV IP once. After connecting, the controller gets its own full-screen layout.</string>
+    <string name="connection_help">The IP is saved locally on this phone for the next launch.</string>
+    <string name="connection_flow_hint">Back from the controller screen to disconnect and return here.</string>
+    <string name="enter_tv_ip">Enter the TV IP address</string>
+    <string name="opening_controls">Opening controls…</string>
     <string name="status_not_connected">Not connected</string>
     <string name="status_sending">Sending to %1$s:%2$d</string>
     <string name="status_error">Error: %1$s</string>
