@@ -12,15 +12,15 @@ object Protocol {
 }
 
 object ButtonBit {
-    const val A      = 1 shl 0
-    const val B      = 1 shl 1
-    const val X      = 1 shl 2
-    const val Y      = 1 shl 3
-    const val L1     = 1 shl 4
-    const val R1     = 1 shl 5
-    const val L3     = 1 shl 6
-    const val R3     = 1 shl 7
+    const val A = 1 shl 0
+    const val B = 1 shl 1
+    const val X = 1 shl 2
+    const val Y = 1 shl 3
+    const val L1 = 1 shl 4
+    const val R1 = 1 shl 5
+    const val L3 = 1 shl 6
+    const val R3 = 1 shl 7
     const val SELECT = 1 shl 8
-    const val START  = 1 shl 9
-    const val MODE   = 1 shl 10
+    const val START = 1 shl 9
+    const val MODE = 1 shl 10
 }

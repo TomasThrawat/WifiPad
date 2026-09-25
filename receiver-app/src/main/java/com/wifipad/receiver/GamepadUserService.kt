@@ -9,7 +9,7 @@ import java.util.concurrent.atomic.AtomicLong
 
 /**
  * Runs in the separate process Shizuku spawns with shell (uid 2000) privilege via
- * Shizuku.bindUserService() -- Shizuku's currently-recommended replacement for the
+ * Shizuku.bindUserService() — Shizuku's currently-recommended replacement for the
  * deprecated Shizuku#newProcess text-pipe API (see RikkaApps/Shizuku-API README).
  *
  * It owns both the `uinput` child process and the UDP socket so the whole
@@ -29,28 +29,20 @@ class GamepadUserService : IGamepadService.Stub() {
 
     override fun start(port: Int): Boolean {
         if (running.get()) return true
+
+        error = ""
+        lastButtons = 0
+        lastDpad = -1
+
+        var proc: Process? = null
+        var sock: DatagramSocket? = null
+
         return try {
-            val proc = ProcessBuilder("uinput", "-")
+            proc = ProcessBuilder("uinput", "-")
                 .redirectErrorStream(true)
                 .start()
             uinputProcess = proc
 
-            // uinput's stdout (merged with stderr above) must be drained continuously.
-            // java.lang.Process's own docs warn that failing to read a subprocess's
-            // output pipe can block -- even deadlock -- it once the OS pipe buffer
-            // fills (source: developer.android.com/reference/kotlin/java/lang/Process).
-            // Left undrained here, uinput eventually blocks trying to write and stops
-            // reading any further commands from its stdin -- so every button/stick
-            // packet after that point gets received and counted by receiveLoop() same
-            // as before, but silently has zero effect because the frozen uinput
-            // process never gets to act on the injected events.
-            //
-            // uinput only writes to this stream on error. When forEachLine returns, that
-            // means EOF on the pipe, i.e. uinput closed stdout, which in practice means
-            // the process is exiting/dead -- that's the earliest, cheapest point to
-            // detect the death that otherwise only shows up later as a broken pad.inject()
-            // write ("Stream closed"), so stop() is triggered right here instead of
-            // waiting for the next packet to fail.
             Thread {
                 try {
                     proc.inputStream.bufferedReader().forEachLine { }
@@ -62,12 +54,20 @@ class GamepadUserService : IGamepadService.Stub() {
                     error = "uinput process ended (exit code: $exitCode)"
                     stop()
                 }
-            }.apply { isDaemon = true; name = "uinput-drain"; start() }
+            }.apply {
+                isDaemon = true
+                name = "uinput-drain"
+                start()
+            }
 
             val pad = UinputGamepad(proc.outputStream)
             pad.register()
 
-            val sock = DatagramSocket(null)
+            if (!proc.isAlive) {
+                throw IllegalStateException("uinput process exited during registration")
+            }
+
+            sock = DatagramSocket(null)
             sock.reuseAddress = true
             sock.bind(InetSocketAddress(port))
             socket = sock
@@ -81,6 +81,24 @@ class GamepadUserService : IGamepadService.Stub() {
             true
         } catch (e: Exception) {
             error = e.message ?: "start failed"
+            running.set(false)
+
+            try {
+                sock?.close()
+            } catch (_: Exception) {
+            }
+            if (socket === sock) {
+                socket = null
+            }
+
+            proc?.let {
+                try { it.outputStream.close() } catch (_: Exception) {}
+                try { it.destroy() } catch (_: Exception) {}
+            }
+            if (uinputProcess === proc) {
+                uinputProcess = null
+            }
+
             false
         }
     }
@@ -92,8 +110,10 @@ class GamepadUserService : IGamepadService.Stub() {
                 val packet = DatagramPacket(buf, buf.size)
                 sock.receive(packet)
                 if (packet.length < Protocol.PACKET_SIZE) continue
+
                 val d = packet.data
-                if (d[0] != Protocol.MAGIC) continue
+                if (d[0] != Protocol.MAGIC || d[1] != Protocol.VERSION) continue
+
                 received.incrementAndGet()
                 handlePacket(d, pad)
             } catch (e: Exception) {
@@ -139,12 +159,6 @@ class GamepadUserService : IGamepadService.Stub() {
         try {
             pad.inject(events)
         } catch (e: Exception) {
-            // The stream to uinput's stdin is gone (process died, or the OS pipe was
-            // torn down) -- writing to it again on every subsequent packet would just
-            // repeat the same failure at up to 60 Hz for nothing. Surface it as the
-            // service's error state and shut the pipeline down instead of spinning;
-            // the drain thread above independently detects a dead uinput
-            // process too, so whichever notices first wins -- stop() is idempotent.
             error = "inject failed: ${e.message ?: e.javaClass.simpleName}"
             stop()
         }
@@ -166,19 +180,17 @@ class GamepadUserService : IGamepadService.Stub() {
     )
 
     override fun stop() {
-        // CAS guard: stop() can now be reached from three places -- the Activity's
-        // Stop button (Binder thread), the drain thread noticing uinput died, and
-        // handlePacket() noticing an inject failure. Without this guard a death that
-        // trips both detectors (or a Stop press racing either) would run
-        // destroy-order cleanup twice.
         if (!running.compareAndSet(true, false)) return
+
         socket?.close()
         socket = null
         uinputProcess?.let {
             try { it.outputStream.close() } catch (_: Exception) {}
-            it.destroy()
+            try { it.destroy() } catch (_: Exception) {}
         }
         uinputProcess = null
+        lastButtons = 0
+        lastDpad = -1
     }
 
     override fun isRunning(): Boolean = running.get()

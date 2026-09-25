@@ -25,9 +25,9 @@ class GamepadState {
         b[5] = leftY
         b[6] = rightX
         b[7] = rightY
-        b[8] = leftTrigger.toByte()
-        b[9] = rightTrigger.toByte()
-        b[10] = dpad.toByte()
+        b[8] = leftTrigger.coerceIn(0, 255).toByte()
+        b[9] = rightTrigger.coerceIn(0, 255).toByte()
+        b[10] = dpad.coerceIn(0, 255).toByte()
         return b
     }
 }
