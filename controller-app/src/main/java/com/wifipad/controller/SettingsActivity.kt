@@ -374,13 +374,7 @@ class SettingsActivity : AppCompatActivity() {
             preview.setSelectedVisible(checked)
         }
 
-        sizeSlider.setOnChangeListener(null)
         sizeSlider.value = current.scale * 100f
-        sizeSlider.addOnChangeListener { _, value, fromUser ->
-            if (!fromUser) return@addOnChangeListener
-            preview.setSelectedScale(value / 100f)
-            updateEditorLabels()
-        }
 
         updateEditorLabels()
     }

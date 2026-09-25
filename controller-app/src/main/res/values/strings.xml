@@ -10,7 +10,7 @@
     <string name="opening_controls">Opening controls…</string>
     <string name="settings">Settings</string>
     <string name="settings_title">Controller settings</string>
-    <string name="settings_subtitle">Turn control groups on or off, then tune their size and position. Changes are saved instantly.</string>
+    <string name="settings_subtitle">Customize the controller layout visually. Changes are applied when you tap Apply.</string>
     <string name="settings_editor_hint">Tap a control to select it. Drag it to move it. Only the selected control gets the size and Show controls below.</string>
     <string name="settings_show">Show</string>
     <string name="settings_reset">Reset</string>

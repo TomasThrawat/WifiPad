@@ -17,12 +17,10 @@ class ControlEditorView(context: Context) : View(context) {
     private var activePointerId = -1
     private var dragOffsetX = 0f
     private var dragOffsetY = 0f
-    private var moved = false
     private var selectionListener: ((ControlGroup) -> Unit)? = null
 
     private val backgroundPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val controlPaint = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val hiddenPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         textAlign = Paint.Align.CENTER
     }
@@ -55,12 +53,22 @@ class ControlEditorView(context: Context) : View(context) {
             com.google.android.material.R.attr.colorOnPrimaryContainer
         )
     }
-    private val primaryColor by lazy {
-        MaterialColors.getColor(this, com.google.android.material.R.attr.colorPrimary)
+    private val selectionColor by lazy {
+        MaterialColors.getColor(this, com.google.android.material.R.attr.colorPrimaryContainer)
     }
 
     init {
-        resetToDefaults()
+        loadSavedSettings()
+    }
+
+    private fun loadSavedSettings() {
+        values.clear()
+        ControlGroup.values().forEach { group ->
+            values[group] = ControlSettingsStore.load(context, group)
+        }
+        selectedGroup = ControlGroup.STICK
+        activePointerId = -1
+        invalidate()
     }
 
     fun setOnSelectionChangedListener(listener: (ControlGroup) -> Unit) {
@@ -99,7 +107,6 @@ class ControlEditorView(context: Context) : View(context) {
         }
         selectedGroup = ControlGroup.STICK
         activePointerId = -1
-        moved = false
         invalidate()
     }
 
@@ -121,10 +128,9 @@ class ControlEditorView(context: Context) : View(context) {
 
         val size = min(width, height).toFloat()
         controlPaint.color = surfaceContainerColor
-        hiddenPaint.color = primaryContainerColor
         textPaint.textSize = (size * 0.038f).coerceIn(11f, 22f)
         textPaint.color = onSurfaceColor
-        selectionPaint.color = primaryColor
+        selectionPaint.color = selectionColor
 
         ControlGroup.values().forEach { group ->
             drawGroup(canvas, group, getSelectedSettings(group), size)
@@ -142,8 +148,7 @@ class ControlEditorView(context: Context) : View(context) {
                     val center = getCenter(hit, getSelectedSettings(hit))
                     dragOffsetX = event.getX(index) - center.first
                     dragOffsetY = event.getY(index) - center.second
-                    moved = false
-                    parent.requestDisallowInterceptTouchEvent(true)
+                                parent.requestDisallowInterceptTouchEvent(true)
                 }
                 return true
             }
@@ -156,14 +161,6 @@ class ControlEditorView(context: Context) : View(context) {
                 val x = event.getX(index) - dragOffsetX
                 val y = event.getY(index) - dragOffsetY
 
-                if (hypot(
-                        (x - getCenter(selectedGroup, getSelectedSettings(selectedGroup)).first).toDouble(),
-                        (y - getCenter(selectedGroup, getSelectedSettings(selectedGroup)).second).toDouble()
-                    ) > dp(2)
-                ) {
-                    moved = true
-                }
-
                 moveSelectedTo(x, y, size = min(width, height).toFloat())
                 return true
             }
@@ -172,16 +169,14 @@ class ControlEditorView(context: Context) : View(context) {
                 if (event.getPointerId(event.actionIndex) == activePointerId) {
                     activePointerId = -1
                     parent.requestDisallowInterceptTouchEvent(false)
-                    moved = false
-                }
+                            }
                 return true
             }
 
             MotionEvent.ACTION_CANCEL -> {
                 activePointerId = -1
                 parent.requestDisallowInterceptTouchEvent(false)
-                moved = false
-                return true
+                        return true
             }
         }
 
