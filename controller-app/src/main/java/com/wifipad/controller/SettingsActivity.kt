@@ -2,6 +2,7 @@ package com.wifipad.controller
 
 import android.os.Bundle
 import android.view.Gravity
+import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.Toast
@@ -9,16 +10,22 @@ import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.card.MaterialCardView
+import com.google.android.material.checkbox.MaterialCheckBox
 import com.google.android.material.color.DynamicColors
 import com.google.android.material.color.MaterialColors
-import com.google.android.material.materialswitch.MaterialSwitch
 import com.google.android.material.slider.Slider
 import com.google.android.material.textview.MaterialTextView
+import kotlin.math.roundToInt
 
 class SettingsActivity : AppCompatActivity() {
 
-    private val sliders = mutableMapOf<ControlGroup, List<Slider>>()
-    private val valueLabels = mutableMapOf<ControlGroup, List<MaterialTextView>>()
+    private lateinit var preview: ControlEditorView
+    private lateinit var selectedTitle: MaterialTextView
+    private lateinit var positionLabel: MaterialTextView
+    private lateinit var showCheckBox: MaterialCheckBox
+    private lateinit var sizeSlider: Slider
+    private lateinit var sizeValue: MaterialTextView
+    private var selectedGroup: ControlGroup = ControlGroup.STICK
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -50,13 +57,14 @@ class SettingsActivity : AppCompatActivity() {
         val scroll = ScrollView(this).apply {
             isFillViewport = true
         }
+
         val content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(20), dp(10), dp(20), dp(28))
         }
 
         val subtitle = MaterialTextView(this).apply {
-            text = getString(R.string.settings_subtitle)
+            text = getString(R.string.settings_editor_hint)
             setTextAppearance(
                 com.google.android.material.R.style.TextAppearance_Material3_BodyLarge
             )
@@ -73,17 +81,21 @@ class SettingsActivity : AppCompatActivity() {
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
             ).apply {
-                bottomMargin = dp(16)
+                bottomMargin = dp(14)
             }
         )
+
+        val actionRow = LinearLayout(this).apply {
+            gravity = Gravity.CENTER_VERTICAL
+        }
 
         val resetButton = MaterialButton(this).apply {
             text = getString(R.string.settings_reset)
             isAllCaps = false
             cornerRadius = dp(18)
             setOnClickListener {
-                ControlSettingsStore.reset(context)
-                recreate()
+                preview.resetToDefaults()
+                selectGroup(selectedGroup)
                 Toast.makeText(
                     context,
                     R.string.settings_reset_done,
@@ -91,38 +103,53 @@ class SettingsActivity : AppCompatActivity() {
                 ).show()
             }
         }
-        content.addView(
-            resetButton,
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                dp(56)
-            ).apply {
-                bottomMargin = dp(18)
-            }
-        )
 
-        ControlGroup.values().forEach { group ->
-            content.addView(createGroupCard(group))
+        val applyButton = MaterialButton(this).apply {
+            text = getString(R.string.settings_apply)
+            isAllCaps = false
+            cornerRadius = dp(18)
+            setOnClickListener {
+                preview.applyChanges()
+                Toast.makeText(
+                    context,
+                    R.string.settings_apply_done,
+                    Toast.LENGTH_SHORT
+                ).show()
+                finish()
+            }
         }
 
-        scroll.addView(content)
-        root.addView(
-            scroll,
+        actionRow.addView(
+            resetButton,
+            LinearLayout.LayoutParams(
+                0,
+                dp(52),
+                1f
+            ).apply {
+                marginEnd = dp(6)
+            }
+        )
+        actionRow.addView(
+            applyButton,
+            LinearLayout.LayoutParams(
+                0,
+                dp(52),
+                1f
+            ).apply {
+                marginStart = dp(6)
+            }
+        )
+        content.addView(
+            actionRow,
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                0
+                LinearLayout.LayoutParams.WRAP_CONTENT
             ).apply {
-                weight = 1f
+                bottomMargin = dp(14)
             }
         )
 
-        setContentView(root)
-    }
-
-    private fun createGroupCard(group: ControlGroup): MaterialCardView {
-        val settings = ControlSettingsStore.load(this, group)
-
-        val card = MaterialCardView(this).apply {
+        val previewCard = MaterialCardView(this).apply {
             radius = dp(24).toFloat()
             cardElevation = 0f
             strokeWidth = dp(1)
@@ -138,195 +165,128 @@ class SettingsActivity : AppCompatActivity() {
             )
         }
 
-        val content = LinearLayout(this).apply {
+        preview = ControlEditorView(this).apply {
+            setOnSelectionChangedListener { group ->
+                selectGroup(group)
+            }
+        }
+        previewCard.addView(
+            preview,
+            FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                dp(260)
+            )
+        )
+        content.addView(
+            previewCard,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dp(260)
+            ).apply {
+                bottomMargin = dp(14)
+            }
+        )
+
+        val editorCard = MaterialCardView(this).apply {
+            radius = dp(24).toFloat()
+            cardElevation = 0f
+            strokeWidth = dp(1)
+            strokeColor = MaterialColors.getColor(
+                this,
+                com.google.android.material.R.attr.colorOutlineVariant
+            )
+            setCardBackgroundColor(
+                MaterialColors.getColor(
+                    this,
+                    com.google.android.material.R.attr.colorSurfaceContainer
+                )
+            )
+        }
+
+        val editor = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(18), dp(18), dp(18), dp(18))
         }
 
-        val header = LinearLayout(this).apply {
-            gravity = Gravity.CENTER_VERTICAL
-        }
-
-        val title = MaterialTextView(this).apply {
-            text = groupLabel(group)
+        selectedTitle = MaterialTextView(this).apply {
             setTextAppearance(
                 com.google.android.material.R.style.TextAppearance_Material3_TitleMedium
             )
         }
+        editor.addView(
+            selectedTitle,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        )
 
-        val toggle = MaterialSwitch(this).apply {
-            isChecked = settings.visible
+        positionLabel = MaterialTextView(this).apply {
+            setTextAppearance(
+                com.google.android.material.R.style.TextAppearance_Material3_BodyMedium
+            )
+            setTextColor(
+                MaterialColors.getColor(
+                    this,
+                    com.google.android.material.R.attr.colorOnSurfaceVariant
+                )
+            )
+        }
+        editor.addView(
+            positionLabel,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                topMargin = dp(4)
+                bottomMargin = dp(12)
+            }
+        )
+
+        val showRow = LinearLayout(this).apply {
+            gravity = Gravity.CENTER_VERTICAL
+        }
+
+        showCheckBox = MaterialCheckBox(this).apply {
             text = getString(R.string.settings_show)
             isAllCaps = false
             setOnCheckedChangeListener { _, checked ->
-                val current = ControlSettingsStore.load(context, group)
-                ControlSettingsStore.save(
-                    context,
-                    group,
-                    current.copy(visible = checked)
-                )
-                updateSliderState(group, checked)
+                if (::preview.isInitialized) {
+                    preview.setSelectedVisible(checked)
+                }
             }
         }
 
-        header.addView(
-            title,
+        showRow.addView(
+            showCheckBox,
             LinearLayout.LayoutParams(
                 0,
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 1f
             )
         )
-        header.addView(
-            toggle,
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-        )
-        content.addView(
-            header,
+        editor.addView(
+            showRow,
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
             ).apply {
-                bottomMargin = dp(8)
+                bottomMargin = dp(2)
             }
         )
 
-        val sizeSlider = createSlider(group, SliderKind.SIZE, settings.scale * 100f)
-        val xSlider = createSlider(group, SliderKind.HORIZONTAL, settings.x * 100f)
-        val ySlider = createSlider(group, SliderKind.VERTICAL, settings.y * 100f)
-
-        sliders[group] = listOf(sizeSlider, xSlider, ySlider)
-
-        val sizeLabel = createValueLabel(
-            getString(R.string.settings_size_value, sizeSlider.value.roundToInt())
-        )
-        val xLabel = createValueLabel(
-            getString(R.string.settings_horizontal_value, xSlider.value.roundToInt())
-        )
-        val yLabel = createValueLabel(
-            getString(R.string.settings_vertical_value, ySlider.value.roundToInt())
-        )
-        valueLabels[group] = listOf(sizeLabel, xLabel, yLabel)
-
-        addSettingRow(content, getString(R.string.settings_size), sizeLabel, sizeSlider)
-        addSettingRow(content, getString(R.string.settings_horizontal), xLabel, xSlider)
-        addSettingRow(content, getString(R.string.settings_vertical), yLabel, ySlider)
-
-        updateSliderState(group, toggle.isChecked)
-
-        card.addView(content)
-        card.layoutParams = LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT
-        ).apply {
-            bottomMargin = dp(14)
-        }
-        return card
-    }
-
-    private enum class SliderKind {
-        SIZE, HORIZONTAL, VERTICAL
-    }
-
-    private fun createSlider(
-        group: ControlGroup,
-        kind: SliderKind,
-        initialValue: Float
-    ): Slider {
-        return Slider(this).apply {
-            when (kind) {
-                SliderKind.SIZE -> {
-                    valueFrom = 60f
-                    valueTo = 160f
-                    stepSize = 5f
-                }
-                SliderKind.HORIZONTAL -> {
-                    valueFrom = 5f
-                    valueTo = 95f
-                    stepSize = 1f
-                }
-                SliderKind.VERTICAL -> {
-                    valueFrom = 8f
-                    valueTo = 92f
-                    stepSize = 1f
-                }
-            }
-
-            value = initialValue.coerceIn(valueFrom, valueTo)
-
-            addOnChangeListener { _, value, fromUser ->
-                if (!fromUser) return@addOnChangeListener
-
-                val current = ControlSettingsStore.load(context, group)
-                val updated = when (kind) {
-                    SliderKind.SIZE -> current.copy(scale = value / 100f)
-                    SliderKind.HORIZONTAL -> current.copy(x = value / 100f)
-                    SliderKind.VERTICAL -> current.copy(y = value / 100f)
-                }
-                ControlSettingsStore.save(context, group, updated)
-                updateValueLabel(group, kind, value.roundToInt())
-            }
-        }
-    }
-
-    private fun addSettingRow(
-        parent: LinearLayout,
-        title: String,
-        value: MaterialTextView,
-        slider: Slider
-    ) {
-        val rowTitle = LinearLayout(this).apply {
+        val sizeHeader = LinearLayout(this).apply {
             gravity = Gravity.CENTER_VERTICAL
         }
 
-        val titleView = MaterialTextView(this).apply {
-            text = title
+        val sizeTitle = MaterialTextView(this).apply {
+            text = getString(R.string.settings_size)
             setTextAppearance(
                 com.google.android.material.R.style.TextAppearance_Material3_BodyLarge
             )
         }
 
-        rowTitle.addView(
-            titleView,
-            LinearLayout.LayoutParams(
-                0,
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                1f
-            )
-        )
-        rowTitle.addView(
-            value,
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-        )
-
-        parent.addView(
-            rowTitle,
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply {
-                topMargin = dp(8)
-            }
-        )
-        parent.addView(
-            slider,
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                dp(44)
-            )
-        )
-    }
-
-    private fun createValueLabel(text: String) =
-        MaterialTextView(this).apply {
-            this.text = text
-            gravity = Gravity.END
+        sizeValue = MaterialTextView(this).apply {
             setTextAppearance(
                 com.google.android.material.R.style.TextAppearance_Material3_LabelLarge
             )
@@ -338,17 +298,105 @@ class SettingsActivity : AppCompatActivity() {
             )
         }
 
-    private fun updateValueLabel(group: ControlGroup, kind: SliderKind, value: Int) {
-        val index = kind.ordinal
-        valueLabels[group]?.getOrNull(index)?.text = when (kind) {
-            SliderKind.SIZE -> getString(R.string.settings_size_value, value)
-            SliderKind.HORIZONTAL -> getString(R.string.settings_horizontal_value, value)
-            SliderKind.VERTICAL -> getString(R.string.settings_vertical_value, value)
+        sizeHeader.addView(
+            sizeTitle,
+            LinearLayout.LayoutParams(
+                0,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                1f
+            )
+        )
+        sizeHeader.addView(
+            sizeValue,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        )
+        editor.addView(
+            sizeHeader,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                topMargin = dp(6)
+            }
+        )
+
+        sizeSlider = Slider(this).apply {
+            valueFrom = 60f
+            valueTo = 160f
+            stepSize = 5f
+            addOnChangeListener { _, value, fromUser ->
+                if (!fromUser || !::preview.isInitialized) return@addOnChangeListener
+                preview.setSelectedScale(value / 100f)
+                updateEditorLabels()
+            }
         }
+        editor.addView(
+            sizeSlider,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dp(44)
+            )
+        )
+
+        editorCard.addView(editor)
+        editorCard.layoutParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        )
+        content.addView(editorCard)
+
+        scroll.addView(content)
+        root.addView(
+            scroll,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                0
+            ).apply {
+                weight = 1f
+            }
+        )
+
+        setContentView(root)
+        selectGroup(ControlGroup.STICK)
     }
 
-    private fun updateSliderState(group: ControlGroup, enabled: Boolean) {
-        sliders[group]?.forEach { it.isEnabled = enabled }
+    private fun selectGroup(group: ControlGroup) {
+        selectedGroup = group
+        val current = preview.getSelectedSettings(group)
+
+        selectedTitle.text = groupLabel(group)
+        showCheckBox.setOnCheckedChangeListener(null)
+        showCheckBox.isChecked = current.visible
+        showCheckBox.setOnCheckedChangeListener { _, checked ->
+            preview.setSelectedVisible(checked)
+        }
+
+        sizeSlider.setOnChangeListener(null)
+        sizeSlider.value = current.scale * 100f
+        sizeSlider.addOnChangeListener { _, value, fromUser ->
+            if (!fromUser) return@addOnChangeListener
+            preview.setSelectedScale(value / 100f)
+            updateEditorLabels()
+        }
+
+        updateEditorLabels()
+    }
+
+    private fun updateEditorLabels() {
+        val current = preview.getSelectedSettings(selectedGroup)
+        val scalePercent = (current.scale * 100f).roundToInt()
+        val xPercent = (current.x * 100f).roundToInt()
+        val yPercent = (current.y * 100f).roundToInt()
+
+        sizeValue.text = getString(R.string.settings_size_value, scalePercent)
+        positionLabel.text = getString(
+            R.string.settings_position_value,
+            xPercent,
+            yPercent
+        )
     }
 
     private fun groupLabel(group: ControlGroup): String = when (group) {
@@ -361,7 +409,4 @@ class SettingsActivity : AppCompatActivity() {
 
     private fun dp(value: Int): Int =
         (value * resources.displayMetrics.density).toInt()
-
-    private fun Float.roundToInt(): Int =
-        kotlin.math.round(this).toInt()
 }
