@@ -31,11 +31,17 @@ class UdpSender(private val state: GamepadState, private val hz: Int = 60) {
             running.set(true)
             val exec = Executors.newSingleThreadScheduledExecutor()
             executor = exec
-            val periodMs = (1000L / hz).coerceAtLeast(1)
-            exec.scheduleAtFixedRate({
-                if (running.get()) sendOnce()
-            }, 0, periodMs, TimeUnit.MILLISECONDS)
+            val periodNanos = 1_000_000_000L / hz.coerceAtLeast(1)
+            exec.scheduleAtFixedRate(
+                {
+                    if (running.get()) sendOnce()
+                },
+                0,
+                periodNanos,
+                TimeUnit.NANOSECONDS
+            )
         } catch (e: Exception) {
+            stop()
             onError?.invoke(e.message ?: "connect error")
         }
     }
@@ -45,7 +51,13 @@ class UdpSender(private val state: GamepadState, private val hz: Int = 60) {
             val data = state.toPacket()
             socket?.send(DatagramPacket(data, data.size, address, port))
         } catch (e: Exception) {
-            onError?.invoke(e.message ?: "send error")
+            if (running.compareAndSet(true, false)) {
+                executor?.shutdownNow()
+                executor = null
+                socket?.close()
+                socket = null
+                onError?.invoke(e.message ?: "send error")
+            }
         }
     }
 
