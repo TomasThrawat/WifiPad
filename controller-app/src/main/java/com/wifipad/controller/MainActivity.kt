@@ -32,7 +32,7 @@ class MainActivity : AppCompatActivity() {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(
                 MaterialColors.getColor(
-                    this@MainActivity,
+                    this,
                     com.google.android.material.R.attr.colorSurface
                 )
             )
@@ -66,10 +66,12 @@ class MainActivity : AppCompatActivity() {
 
         val ipLayout = TextInputLayout(this).apply {
             hint = getString(R.string.tv_ip_hint)
-            boxCornerRadiusTopStart = dp(14).toFloat()
-            boxCornerRadiusTopEnd = dp(14).toFloat()
-            boxCornerRadiusBottomStart = dp(14).toFloat()
-            boxCornerRadiusBottomEnd = dp(14).toFloat()
+            setBoxCornerRadii(
+                dp(14).toFloat(),
+                dp(14).toFloat(),
+                dp(14).toFloat(),
+                dp(14).toFloat()
+            )
             layoutParams = LinearLayout.LayoutParams(
                 0,
                 LinearLayout.LayoutParams.WRAP_CONTENT,
