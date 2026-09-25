@@ -194,21 +194,10 @@ class SettingsActivity : AppCompatActivity() {
             }
         )
 
-        val sizeSlider = createSlider(
-            group,
-            SliderKind.SIZE,
-            settings.scale * 100f
-        )
-        val xSlider = createSlider(
-            group,
-            SliderKind.HORIZONTAL,
-            settings.x * 100f
-        )
-        val ySlider = createSlider(
-            group,
-            SliderKind.VERTICAL,
-            settings.y * 100f
-        )
+        val sizeSlider = createSlider(group, SliderKind.SIZE, settings.scale * 100f)
+        val xSlider = createSlider(group, SliderKind.HORIZONTAL, settings.x * 100f)
+        val ySlider = createSlider(group, SliderKind.VERTICAL, settings.y * 100f)
+
         sliders[group] = listOf(sizeSlider, xSlider, ySlider)
 
         val sizeLabel = createValueLabel(
@@ -223,18 +212,8 @@ class SettingsActivity : AppCompatActivity() {
         valueLabels[group] = listOf(sizeLabel, xLabel, yLabel)
 
         addSettingRow(content, getString(R.string.settings_size), sizeLabel, sizeSlider)
-        addSettingRow(
-            content,
-            getString(R.string.settings_horizontal),
-            xLabel,
-            xSlider
-        )
-        addSettingRow(
-            content,
-            getString(R.string.settings_vertical),
-            yLabel,
-            ySlider
-        )
+        addSettingRow(content, getString(R.string.settings_horizontal), xLabel, xSlider)
+        addSettingRow(content, getString(R.string.settings_vertical), yLabel, ySlider)
 
         updateSliderState(group, toggle.isChecked)
 
@@ -372,11 +351,12 @@ class SettingsActivity : AppCompatActivity() {
         sliders[group]?.forEach { it.isEnabled = enabled }
     }
 
-    private fun groupLabel(group: ControlGroup) = when (group) {
+    private fun groupLabel(group: ControlGroup): String = when (group) {
         ControlGroup.STICK -> getString(R.string.control_stick)
         ControlGroup.DPAD -> getString(R.string.control_dpad)
         ControlGroup.FACE -> getString(R.string.control_face)
-        ControlGroup.SHOULDERS -> getString(R.string.control_shoulders)
+        ControlGroup.LEFT_SHOULDER -> getString(R.string.control_left_shoulder)
+        ControlGroup.RIGHT_SHOULDER -> getString(R.string.control_right_shoulder)
     }
 
     private fun dp(value: Int): Int =
