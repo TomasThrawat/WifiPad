@@ -132,7 +132,7 @@ class MainActivity : AppCompatActivity() {
         }
         ipLayout.addView(
             ipField,
-            TextInputLayout.LayoutParams(
+            LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 dp(64)
             )
