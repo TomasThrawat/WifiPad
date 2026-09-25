@@ -67,7 +67,7 @@ class MainActivity : AppCompatActivity() {
             gravity = Gravity.CENTER_HORIZONTAL
             setBackgroundColor(
                 MaterialColors.getColor(
-                    this@MainActivity,
+                    this,
                     com.google.android.material.R.attr.colorSurface
                 )
             )
