@@ -12,7 +12,8 @@ enum class ControlGroup(
     STICK("stick", true, 1.0f, 0.22f, 0.64f),
     DPAD("dpad", true, 1.0f, 0.22f, 0.31f),
     FACE("face", true, 1.0f, 0.78f, 0.64f),
-    SHOULDERS("shoulders", true, 1.0f, 0.50f, 0.12f)
+    LEFT_SHOULDER("left_shoulder", true, 1.0f, 0.12f, 0.14f),
+    RIGHT_SHOULDER("right_shoulder", true, 1.0f, 0.88f, 0.14f)
 }
 
 data class ControlSettings(
@@ -53,7 +54,4 @@ object ControlSettingsStore {
     fun reset(context: Context) {
         prefs(context).edit().clear().apply()
     }
-
-    fun minScale() = MIN_SCALE
-    fun maxScale() = MAX_SCALE
 }
