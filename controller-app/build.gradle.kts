@@ -5,7 +5,7 @@ plugins {
 
 android {
     namespace = "com.wifipad.controller"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.wifipad.controller"
@@ -36,4 +36,5 @@ android {
 dependencies {
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.appcompat:appcompat:1.7.0")
+    implementation("com.google.android.material:material:1.14.0")
 }

@@ -8,6 +8,7 @@ import android.graphics.RectF
 import android.util.AttributeSet
 import android.view.MotionEvent
 import android.view.View
+import com.google.android.material.color.MaterialColors
 import kotlin.math.hypot
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -40,13 +41,62 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
     /** Which pointer id is currently holding down which button rect, so multi-touch works. */
     private val activePointerToRect = mutableMapOf<Int, Rect2>()
 
-    private val bgPaint = Paint().apply { color = Color.rgb(28, 28, 32) }
-    private val stickBasePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(50, 50, 56) }
-    private val stickKnobPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(90, 90, 100) }
-    private val buttonPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(60, 60, 68) }
-    private val buttonActivePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(120, 170, 255) }
+    private val bgColor =
+        MaterialColors.getColor(context, com.google.android.material.R.attr.colorSurface, Color.BLACK)
+    private val surfaceContainerColor =
+        MaterialColors.getColor(context, com.google.android.material.R.attr.colorSurfaceContainer, Color.DKGRAY)
+    private val surfaceHighColor =
+        MaterialColors.getColor(context, com.google.android.material.R.attr.colorSurfaceContainerHigh, Color.GRAY)
+    private val primaryContainerColor =
+        MaterialColors.getColor(context, com.google.android.material.R.attr.colorPrimaryContainer, Color.DKGRAY)
+    private val onPrimaryContainerColor =
+        MaterialColors.getColor(context, com.google.android.material.R.attr.colorOnPrimaryContainer, Color.WHITE)
+    private val primaryColor =
+        MaterialColors.getColor(context, com.google.android.material.R.attr.colorPrimary, Color.LTGRAY)
+    private val onSurfaceColor =
+        MaterialColors.getColor(context, com.google.android.material.R.attr.colorOnSurface, Color.WHITE)
+    private val outlineColor =
+        MaterialColors.getColor(context, com.google.android.material.R.attr.colorOutlineVariant, Color.GRAY)
+
+    private val bgPaint = Paint().apply { color = bgColor }
+
+    private val stickBasePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = surfaceHighColor
+        style = Paint.Style.FILL
+    }
+
+    private val stickOutlinePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = outlineColor
+        style = Paint.Style.STROKE
+        strokeWidth = 2f
+    }
+
+    private val stickKnobPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = primaryColor
+        style = Paint.Style.FILL
+    }
+
+    private val buttonPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = surfaceContainerColor
+        style = Paint.Style.FILL
+    }
+
+    private val buttonActivePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = primaryContainerColor
+        style = Paint.Style.FILL
+    }
+
+    private val buttonStrokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = outlineColor
+        style = Paint.Style.STROKE
+        strokeWidth = 2f
+    }
+
     private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.WHITE; textAlign = Paint.Align.CENTER; textSize = 34f
+        color = onSurfaceColor
+        textAlign = Paint.Align.CENTER
+        typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
+        subpixelText = true
     }
 
     private class PointF(var x: Float, var y: Float)
@@ -120,19 +170,33 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
 
     private fun drawStick(canvas: Canvas, base: Circle, knob: PointF) {
         canvas.drawCircle(base.cx, base.cy, base.r, stickBasePaint)
-        canvas.drawCircle(knob.x, knob.y, base.r * 0.45f, stickKnobPaint)
+        canvas.drawCircle(base.cx, base.cy, base.r, stickOutlinePaint)
+        val knobPaint = if (stickPointer == -1) stickKnobPaint else buttonActivePaint
+        canvas.drawCircle(knob.x, knob.y, base.r * 0.45f, knobPaint)
     }
 
     private fun drawButton(canvas: Canvas, r: Rect2) {
         val pressed = activePointerToRect.containsValue(r)
-        val paint = if (pressed) buttonActivePaint else buttonPaint
+        val fill = if (pressed) buttonActivePaint else buttonPaint
+        val text = if (pressed) onPrimaryContainerColor else onSurfaceColor
+
         if (r.circle) {
             val radius = min(r.r.width(), r.r.height()) / 2f
-            canvas.drawCircle(r.r.centerX(), r.r.centerY(), radius, paint)
+            canvas.drawCircle(r.r.centerX(), r.r.centerY(), radius, fill)
+            canvas.drawCircle(r.r.centerX(), r.r.centerY(), radius, buttonStrokePaint)
         } else {
-            canvas.drawRoundRect(r.r, 16f, 16f, paint)
+            val corner = dp(18).toFloat()
+            canvas.drawRoundRect(r.r, corner, corner, fill)
+            canvas.drawRoundRect(r.r, corner, corner, buttonStrokePaint)
         }
-        canvas.drawText(r.label, r.r.centerX(), r.r.centerY() + textPaint.textSize / 3, textPaint)
+
+        textPaint.color = text
+        canvas.drawText(
+            r.label,
+            r.r.centerX(),
+            r.r.centerY() - (textPaint.ascent() + textPaint.descent()) / 2f,
+            textPaint
+        )
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
@@ -221,4 +285,7 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         val ny = (dy / base.r * 127f).roundToInt().coerceIn(-127, 127)
         apply(nx.toByte(), ny.toByte())
     }
+
+    private fun dp(value: Int): Int =
+        (value * resources.displayMetrics.density).roundToInt()
 }
