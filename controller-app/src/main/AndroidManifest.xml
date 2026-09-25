@@ -13,6 +13,11 @@
         android:supportsRtl="true">
 
         <activity
+            android:name=".SettingsActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+
+        <activity
             android:name=".GamepadActivity"
             android:exported="false"
             android:screenOrientation="landscape"
