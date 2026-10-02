@@ -1,14 +1,11 @@
 package com.wifipad.receiver
 
-/**
- * Mirrors controller-app's Protocol.kt exactly — 11-byte UDP packet.
- * See that file for the full field-by-field layout comment.
- */
 object Protocol {
     const val MAGIC: Byte = 0x57
     const val VERSION: Byte = 1
     const val PACKET_SIZE = 11
     const val DEFAULT_PORT = 27191
+    const val FAILSAFE_TIMEOUT_MS = 750L
 }
 
 object ButtonBit {

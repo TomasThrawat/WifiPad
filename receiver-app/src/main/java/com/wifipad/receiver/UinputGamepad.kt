@@ -4,56 +4,16 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.OutputStream
 
-/**
- * Drives the AOSP `uinput` shell command (frameworks/base/cmds/uinput, source:
- * https://android.googlesource.com/platform/frameworks/base/+/master/cmds/uinput/)
- * to register a virtual joystick device node. `uinput` is a normal shell-executable
- * binary shipped on stock Android/AOSP images (used by CTS input tests) -- it needs
- * no root, only what Shizuku already grants (shell/uid 2000).
- *
- * The device registers with the vendor/product ID of a wired Xbox 360 controller
- * (0x045e / 0x028e). Every stock Android build ships a matching keylayout file
- * (data/keyboards/Vendor_045e_Product_028e.kl) that remaps the controller's raw
- * axes to Android's recommended MotionEvent axes:
- *   ABS_X/ABS_Y   -> AXIS_X/AXIS_Y   (left stick)
- *   ABS_RX/ABS_RY -> AXIS_Z/AXIS_RZ  (right stick, per Android's own game
- *                                     controller guide)
- *   ABS_Z/ABS_RZ  -> AXIS_LTRIGGER/AXIS_RTRIGGER
- * Spoofing this specific, already-recognized VID/PID means the device gets a
- * fully correct mapping without installing any file into /system (which would
- * need root we don't have) -- Android just uses the layout it already ships with.
- *
- * NOTE on codes: every uinput/input-event code below is sent as a raw integer,
- * not a symbolic string. `Event.readInt()` on this device's AOSP branch
- * (android14-release, matching its Android 14 / SDK 34) parses config/event
- * fields with `Integer.decode()` only -- it does not resolve names like
- * "EV_KEY" or "BTN_A" (that symbol-resolution fallback exists only on newer
- * `main`). Sending a symbolic name throws inside `readConfiguration()`, gets
- * swallowed, and uinput just prints its generic "Error reading in object,
- * ignoring." with no indication of which field failed. The symbolic names are
- * kept as Kotlin constants purely for readability; see
- * bionic/libc/kernel/uapi/linux/{uinput.h,input-event-codes.h} for the source
- * of each numeric value.
- */
 class UinputGamepad(private val out: OutputStream) {
-
     companion object {
         const val DEVICE_ID = 1
-
-        // uinput ioctl codes (bionic/libc/kernel/uapi/linux/uinput.h)
         const val UI_SET_EVBIT = 100
         const val UI_SET_KEYBIT = 101
         const val UI_SET_ABSBIT = 103
-
-        // event types (input-event-codes.h)
         const val EV_KEY = 1
         const val EV_ABS = 3
         const val EV_SYN = 0
-
-        // sync codes (input-event-codes.h)
         const val SYN_REPORT = 0
-
-        // button codes (input-event-codes.h)
         const val BTN_A = 304
         const val BTN_B = 305
         const val BTN_X = 307
@@ -65,8 +25,6 @@ class UinputGamepad(private val out: OutputStream) {
         const val BTN_MODE = 316
         const val BTN_THUMBL = 317
         const val BTN_THUMBR = 318
-
-        // abs axis codes (input-event-codes.h)
         const val ABS_X = 0
         const val ABS_Y = 1
         const val ABS_Z = 2
@@ -77,21 +35,19 @@ class UinputGamepad(private val out: OutputStream) {
         const val ABS_HAT0Y = 17
     }
 
+    private val line = StringBuilder(256)
+
     fun register() {
         val configuration = JSONArray().apply {
             put(cfg(UI_SET_EVBIT, listOf(EV_KEY, EV_ABS)))
             put(cfg(UI_SET_KEYBIT, listOf(
-                BTN_A, BTN_B, BTN_X, BTN_Y,
-                BTN_TL, BTN_TR,
-                BTN_SELECT, BTN_START, BTN_MODE,
-                BTN_THUMBL, BTN_THUMBR
+                BTN_A, BTN_B, BTN_X, BTN_Y, BTN_TL, BTN_TR,
+                BTN_SELECT, BTN_START, BTN_MODE, BTN_THUMBL, BTN_THUMBR
             )))
             put(cfg(UI_SET_ABSBIT, listOf(
-                ABS_X, ABS_Y, ABS_RX, ABS_RY, ABS_Z, ABS_RZ,
-                ABS_HAT0X, ABS_HAT0Y
+                ABS_X, ABS_Y, ABS_RX, ABS_RY, ABS_Z, ABS_RZ, ABS_HAT0X, ABS_HAT0Y
             )))
         }
-
         val absInfo = JSONArray().apply {
             put(abs(ABS_X, -127, 127, 0, 8))
             put(abs(ABS_Y, -127, 127, 0, 8))
@@ -102,7 +58,6 @@ class UinputGamepad(private val out: OutputStream) {
             put(abs(ABS_HAT0X, -1, 1, 0, 0))
             put(abs(ABS_HAT0Y, -1, 1, 0, 0))
         }
-
         write(JSONObject().apply {
             put("id", DEVICE_ID)
             put("command", "register")
@@ -113,9 +68,6 @@ class UinputGamepad(private val out: OutputStream) {
             put("configuration", configuration)
             put("abs_info", absInfo)
         })
-
-        // The input stack needs a moment to add the device; commands sent before
-        // that finishes are silently dropped (documented uinput behaviour).
         write(JSONObject().apply {
             put("id", DEVICE_ID)
             put("command", "delay")
@@ -123,19 +75,45 @@ class UinputGamepad(private val out: OutputStream) {
         })
     }
 
-    /** events: list of (EV_* type, code, value) integer triples; a SYN_REPORT is appended automatically. */
-    fun inject(events: List<Triple<Int, Int, Int>>) {
-        if (events.isEmpty()) return
-        val arr = JSONArray()
-        for ((type, code, value) in events) {
-            arr.put(type); arr.put(code); arr.put(value)
+    fun inject(events: IntArray, count: Int) {
+        if (count <= 0) return
+        line.setLength(0)
+        line.append("""{"id":1,"command":"inject","events":[""")
+        for (i in 0 until count step 3) {
+            if (i > 0) line.append(',')
+            line.append(events[i]).append(',')
+                .append(events[i + 1]).append(',')
+                .append(events[i + 2])
         }
-        arr.put(EV_SYN); arr.put(SYN_REPORT); arr.put(0)
-        write(JSONObject().apply {
-            put("id", DEVICE_ID)
-            put("command", "inject")
-            put("events", arr)
-        })
+        line.append(",0,0,0]}")
+        line.append('
+')
+        writeLine()
+    }
+
+    fun injectNeutral() {
+        line.setLength(0)
+        line.append("""{"id":1,"command":"inject","events":[""")
+        line.append("3,0,0,3,1,0,3,3,0,3,4,0,3,2,0,3,5,0")
+        line.append(",3,16,0,3,17,0")
+        line.append(",1,304,0,1,305,0,1,307,0,1,308,0")
+        line.append(",1,310,0,1,311,0,1,314,0,1,315,0,1,316,0")
+        line.append(",1,317,0,1,318,0,0,0,0]}")
+        line.append('
+')
+        writeLine()
+    }
+
+    private fun write(obj: JSONObject) {
+        line.setLength(0)
+        line.append(obj.toString()).append('
+')
+        writeLine()
+    }
+
+    private fun writeLine() {
+        out.write(line.toString().toByteArray())
+        out.flush()
     }
 
     private fun cfg(type: Int, data: List<Int>) = JSONObject().apply {
@@ -153,12 +131,5 @@ class UinputGamepad(private val out: OutputStream) {
             put("flat", flat)
             put("resolution", 0)
         })
-    }
-
-    private fun write(obj: JSONObject) {
-        val json = obj.toString()
-        out.write(json.toByteArray())
-        out.write('\n'.code)
-        out.flush()
     }
 }
