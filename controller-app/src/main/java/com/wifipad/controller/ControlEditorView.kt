@@ -297,7 +297,7 @@ class ControlEditorView(context: Context) : View(context) {
         size: Float,
         alpha: Int
     ) {
-        val center = getCenter(ControlGroup.STICK, settings)
+        val center = getCenter(settings)
         val radius = size * 0.19f * settings.scale
         controlPaint.alpha = alpha
         canvas.drawCircle(center.first, center.second, radius, controlPaint)
@@ -322,7 +322,7 @@ class ControlEditorView(context: Context) : View(context) {
         val button = size * 0.072f * settings.scale
         val gap = size * 0.020f * settings.scale
         val spacing = 2f * button + gap
-        val center = getCenter(ControlGroup.DPAD, settings)
+        val center = getCenter(settings)
         controlPaint.alpha = alpha
 
         drawSquare(canvas, center.first, center.second - spacing, button, controlPaint, "↑", alpha)
@@ -340,7 +340,7 @@ class ControlEditorView(context: Context) : View(context) {
         val button = size * 0.075f * settings.scale
         val gap = size * 0.020f * settings.scale
         val spacing = 2f * button + gap
-        val center = getCenter(ControlGroup.FACE, settings)
+        val center = getCenter(settings)
         controlPaint.alpha = alpha
 
         drawSquare(canvas, center.first, center.second - spacing, button, controlPaint, "Y", alpha)

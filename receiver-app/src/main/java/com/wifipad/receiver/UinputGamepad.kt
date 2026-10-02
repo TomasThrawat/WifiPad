@@ -106,8 +106,7 @@ class UinputGamepad(private val out: OutputStream) {
 
     private fun write(obj: JSONObject) {
         line.setLength(0)
-        line.append(obj.toString()).append('
-')
+        line.append(obj.toString()).append('\n')
         writeLine()
     }
 
