@@ -75,6 +75,7 @@ class UinputGamepad(private val out: OutputStream) {
         })
     }
 
+    @Synchronized
     fun inject(events: IntArray, count: Int) {
         if (count <= 0) return
         line.setLength(0)
@@ -91,6 +92,7 @@ class UinputGamepad(private val out: OutputStream) {
         writeLine()
     }
 
+    @Synchronized
     fun injectNeutral() {
         line.setLength(0)
         line.append("""{"id":1,"command":"inject","events":[""")

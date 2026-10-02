@@ -20,7 +20,6 @@ class GamepadUserService : IGamepadService.Stub() {
 
     override fun start(port: Int): Boolean {
         if (running.get()) return true
-
         error = ""
         lastButtons = 0
         lastDpad = -1
@@ -33,7 +32,6 @@ class GamepadUserService : IGamepadService.Stub() {
         return try {
             proc = ProcessBuilder("uinput", "-").redirectErrorStream(true).start()
             uinputProcess = proc
-
             Thread {
                 try { proc.inputStream.bufferedReader().forEachLine { } } catch (_: Exception) {}
                 val exitCode = try { proc.waitFor() } catch (_: Exception) { -1 }
@@ -63,7 +61,6 @@ class GamepadUserService : IGamepadService.Stub() {
                 name = "wifipad-recv"
                 start()
             }
-
             Thread { failsafeLoop(pad) }.apply {
                 isDaemon = true
                 name = "wifipad-failsafe"
@@ -87,16 +84,13 @@ class GamepadUserService : IGamepadService.Stub() {
     private fun receiveLoop(sock: DatagramSocket, pad: UinputGamepad) {
         val buf = ByteArray(64)
         val packet = DatagramPacket(buf, buf.size)
-
         while (running.get()) {
             try {
                 packet.length = buf.size
                 sock.receive(packet)
                 if (packet.length < Protocol.PACKET_SIZE) continue
-
                 val d = packet.data
                 if (d[0] != Protocol.MAGIC || d[1] != Protocol.VERSION) continue
-
                 received.incrementAndGet()
                 lastPacketNanos = System.nanoTime()
                 failsafeApplied = false
@@ -112,12 +106,11 @@ class GamepadUserService : IGamepadService.Stub() {
         while (running.get()) {
             try { Thread.sleep(100) } catch (_: InterruptedException) { return }
             if (!running.get()) return
-
             if (!failsafeApplied && System.nanoTime() - lastPacketNanos > timeoutNanos) {
                 try {
                     neutralize(pad)
                     failsafeApplied = true
-                } catch (e: Exception) {
+                } catch (_: Exception) {
                     error = "failsafe failed"
                     stop()
                     return
@@ -136,9 +129,7 @@ class GamepadUserService : IGamepadService.Stub() {
         val rt = d[9].toInt() and 0xFF
         val dpad = d[10].toInt() and 0xFF
 
-        // Six axes are always sent. D-pad/buttons are added only when their
-        // state changes, reducing unnecessary uinput JSON work.
-        val events = IntArray(36)
+        val events = IntArray(60)
         var count = 0
         fun add(type: Int, code: Int, value: Int) {
             events[count++] = type
@@ -171,7 +162,7 @@ class GamepadUserService : IGamepadService.Stub() {
 
         try {
             pad.inject(events, count)
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             error = "inject failed"
             stop()
         }
