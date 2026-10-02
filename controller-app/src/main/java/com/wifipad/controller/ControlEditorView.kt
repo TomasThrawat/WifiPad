@@ -447,8 +447,8 @@ class ControlEditorView(context: Context) : View(context) {
                 center.first + halfX + padding,
                 center.second + halfY + padding
             ),
-            dp(12).toFloat(),
-            dp(12).toFloat(),
+            dp(12),
+            dp(12),
             selectionPaint
         )
     }
