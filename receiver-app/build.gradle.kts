@@ -2,7 +2,6 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     id("com.android.application")
-    id("org.jetbrains.kotlin.android")
 }
 
 android {
@@ -11,7 +10,6 @@ android {
 
     defaultConfig {
         applicationId = "com.wifipad.receiver"
-        // Wireless debugging pairing (no-USB) requires Android 11 (API 30)+.
         minSdk = 30
         targetSdk = 34
         versionCode = 1
