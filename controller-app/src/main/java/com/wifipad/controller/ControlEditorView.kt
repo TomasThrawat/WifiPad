@@ -145,7 +145,7 @@ class ControlEditorView(context: Context) : View(context) {
                 if (hit != null) {
                     selectGroup(hit)
                     activePointerId = event.getPointerId(index)
-                    val center = getCenter(hit, getSelectedSettings(hit))
+                    val center = getCenter(getSelectedSettings(hit))
                     dragOffsetX = event.getX(index) - center.first
                     dragOffsetY = event.getY(index) - center.second
                                 parent.requestDisallowInterceptTouchEvent(true)
@@ -219,7 +219,7 @@ class ControlEditorView(context: Context) : View(context) {
                 val settings = getSelectedSettings(group)
                 when (group) {
                     ControlGroup.STICK -> {
-                        val center = getCenter(group, settings)
+                        val center = getCenter(settings)
                         val radius = size * 0.19f * settings.scale
                         if (hypot(
                                 (x - center.first).toDouble(),
@@ -241,7 +241,7 @@ class ControlEditorView(context: Context) : View(context) {
                             size * 0.020f * settings.scale
                         }
                         val spacing = 2f * button + gap
-                        val center = getCenter(group, settings)
+                        val center = getCenter(settings)
                         if (RectF(
                                 center.first - spacing - button,
                                 center.second - spacing - button,
@@ -255,7 +255,7 @@ class ControlEditorView(context: Context) : View(context) {
                     ControlGroup.RIGHT_SHOULDER -> {
                         val half = size * 0.060f * settings.scale
                         val gap = size * 0.11f * settings.scale
-                        val center = getCenter(group, settings)
+                        val center = getCenter(settings)
                         if (RectF(
                                 center.first - half,
                                 center.second - gap / 2f - half,
@@ -358,7 +358,7 @@ class ControlEditorView(context: Context) : View(context) {
     ) {
         val half = size * 0.060f * settings.scale
         val gap = size * 0.11f * settings.scale
-        val center = getCenter(group, settings)
+        val center = getCenter(settings)
         val topLabel = if (group == ControlGroup.LEFT_SHOULDER) "L1" else "R1"
         val bottomLabel = if (group == ControlGroup.LEFT_SHOULDER) "L2" else "R2"
 
@@ -435,7 +435,7 @@ class ControlEditorView(context: Context) : View(context) {
         settings: ControlSettings,
         size: Float
     ) {
-        val center = getCenter(group, settings)
+        val center = getCenter(settings)
         val halfX = controlHalfWidth(group, settings, size)
         val halfY = controlHalfHeight(group, settings, size)
         val padding = dp(7)
@@ -454,7 +454,6 @@ class ControlEditorView(context: Context) : View(context) {
     }
 
     private fun getCenter(
-        group: ControlGroup,
         settings: ControlSettings
     ): Pair<Float, Float> =
         Pair(width * settings.x, height * settings.y)

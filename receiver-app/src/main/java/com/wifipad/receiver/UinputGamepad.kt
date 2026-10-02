@@ -87,8 +87,7 @@ class UinputGamepad(private val out: OutputStream) {
                 .append(events[i + 2])
         }
         line.append(",0,0,0]}")
-        line.append('
-')
+        line.append('\n')
         writeLine()
     }
 
@@ -101,8 +100,7 @@ class UinputGamepad(private val out: OutputStream) {
         line.append(",1,304,0,1,305,0,1,307,0,1,308,0")
         line.append(",1,310,0,1,311,0,1,314,0,1,315,0,1,316,0")
         line.append(",1,317,0,1,318,0,0,0,0]}")
-        line.append('
-')
+        line.append('\n')
         writeLine()
     }
 
