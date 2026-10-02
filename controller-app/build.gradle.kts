@@ -2,7 +2,6 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     id("com.android.application")
-    id("org.jetbrains.kotlin.android")
 }
 
 android {
@@ -11,8 +10,6 @@ android {
 
     defaultConfig {
         applicationId = "com.wifipad.controller"
-        // OPPO A73 4G (CPH2095) runs Android 12 / API 31 (ColorOS 12.1);
-        // minSdk 24 keeps it well below that so it installs without issue.
         minSdk = 24
         targetSdk = 34
         versionCode = 1
