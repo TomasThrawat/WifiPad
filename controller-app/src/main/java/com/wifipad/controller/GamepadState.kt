@@ -1,6 +1,5 @@
 package com.wifipad.controller
 
-/** Current state of every control, written by the UI thread and read by the sender thread. */
 class GamepadState {
     @Volatile var buttons: Int = 0
     @Volatile var leftX: Byte = 0
@@ -15,19 +14,21 @@ class GamepadState {
         buttons = if (pressed) buttons or bit else buttons and bit.inv()
     }
 
-    fun toPacket(): ByteArray {
-        val b = ByteArray(Protocol.PACKET_SIZE)
-        b[0] = Protocol.MAGIC
-        b[1] = Protocol.VERSION
-        b[2] = (buttons and 0xFF).toByte()
-        b[3] = ((buttons shr 8) and 0xFF).toByte()
-        b[4] = leftX
-        b[5] = leftY
-        b[6] = rightX
-        b[7] = rightY
-        b[8] = leftTrigger.coerceIn(0, 255).toByte()
-        b[9] = rightTrigger.coerceIn(0, 255).toByte()
-        b[10] = dpad.coerceIn(0, 255).toByte()
-        return b
+    fun writePacket(buffer: ByteArray) {
+        require(buffer.size >= Protocol.PACKET_SIZE)
+        val currentButtons = buttons
+        buffer[0] = Protocol.MAGIC
+        buffer[1] = Protocol.VERSION
+        buffer[2] = (currentButtons and 0xFF).toByte()
+        buffer[3] = ((currentButtons ushr 8) and 0xFF).toByte()
+        buffer[4] = leftX
+        buffer[5] = leftY
+        buffer[6] = rightX
+        buffer[7] = rightY
+        buffer[8] = leftTrigger.coerceIn(0, 255).toByte()
+        buffer[9] = rightTrigger.coerceIn(0, 255).toByte()
+        buffer[10] = dpad.coerceIn(0, 255).toByte()
     }
+
+    fun toPacket(): ByteArray = ByteArray(Protocol.PACKET_SIZE).also(::writePacket)
 }

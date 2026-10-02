@@ -4,7 +4,6 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class GamepadStateTest {
-
     @Test
     fun packetUsesProtocolLayoutAndUnsignedRanges() {
         val state = GamepadState().apply {
@@ -17,9 +16,7 @@ class GamepadStateTest {
             rightTrigger = 300
             dpad = 8
         }
-
         val packet = state.toPacket()
-
         assertEquals(Protocol.PACKET_SIZE, packet.size)
         assertEquals(Protocol.MAGIC.toInt(), packet[0].toInt())
         assertEquals(Protocol.VERSION.toInt(), packet[1].toInt())
@@ -33,13 +30,27 @@ class GamepadStateTest {
     }
 
     @Test
+    fun writePacketReusesCallerBuffer() {
+        val state = GamepadState().apply {
+            buttons = ButtonBit.B
+            leftX = 42
+            rightTrigger = 128
+        }
+        val buffer = ByteArray(Protocol.PACKET_SIZE)
+        state.writePacket(buffer)
+        assertEquals(Protocol.MAGIC, buffer[0])
+        assertEquals(Protocol.VERSION, buffer[1])
+        assertEquals(0x02, buffer[2].toInt() and 0xFF)
+        assertEquals(42, buffer[4].toInt())
+        assertEquals(128, buffer[9].toInt() and 0xFF)
+    }
+
+    @Test
     fun setButtonSetsAndClearsOnlyRequestedBit() {
         val state = GamepadState()
-
         state.setButton(ButtonBit.A, true)
         state.setButton(ButtonBit.MODE, true)
         state.setButton(ButtonBit.A, false)
-
         assertEquals(ButtonBit.MODE, state.buttons)
     }
 }
