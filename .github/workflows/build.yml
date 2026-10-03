@@ -12,7 +12,7 @@ concurrency:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       GIT_CONFIG_COUNT: 1
       GIT_CONFIG_KEY_0: init.defaultBranch
@@ -32,7 +32,7 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v6
         with:
-          gradle-version: "9.1.0"
+          gradle-version: "9.8.0"
 
       - name: Build and test debug APKs
         run: gradle :controller-app:testDebugUnitTest :controller-app:assembleDebug :receiver-app:assembleDebug --stacktrace --warning-mode all
