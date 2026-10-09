@@ -3,6 +3,8 @@ package com.wifipad.controller
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Paint
+import android.os.Handler
+import android.os.Looper
 import android.graphics.RectF
 import android.util.AttributeSet
 import android.view.HapticFeedbackConstants
@@ -29,16 +31,15 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
     private var stickBase = Circle(0f, 0f, 0f)
     private var stickPointer = -1
     private var stickKnob = PointF(0f, 0f)
-    private var stickDownX = 0f
-    private var stickDownY = 0f
     private var stickMoved = false
+    private val uiHandler = Handler(Looper.getMainLooper())
+    private val releaseLeftClick = Runnable { state.setButton(ButtonBit.L3, false) }
 
     private var rightStickBase = Circle(0f, 0f, 0f)
     private var rightStickPointer = -1
     private var rightStickKnob = PointF(0f, 0f)
-    private var rightStickDownX = 0f
-    private var rightStickDownY = 0f
     private var rightStickMoved = false
+    private val releaseRightClick = Runnable { state.setButton(ButtonBit.R3, false) }
 
     private val faceButtons = mutableListOf<Rect2>()
     private val dpadButtons = mutableListOf<Rect2>()
@@ -306,10 +307,10 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
             stickPointer == -1
         ) {
             stickPointer = id
-            stickDownX = x
-            stickDownY = y
-            stickMoved = false
-            state.setButton(ButtonBit.L3, true)
+            // Initial contact is analog input; only a later tap release can click L3.
+            stickMoved = hypot((x - stickBase.cx).toDouble(), (y - stickBase.cy).toDouble()) > stickBase.r * 0.12f
+            uiHandler.removeCallbacks(releaseLeftClick)
+            state.setButton(ButtonBit.L3, false)
             performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
             updateStick(x, y, stickBase, stickKnob) { dx, dy ->
                 state.leftX = dx
@@ -323,10 +324,10 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
             rightStickPointer == -1
         ) {
             rightStickPointer = id
-            rightStickDownX = x
-            rightStickDownY = y
-            rightStickMoved = false
-            state.setButton(ButtonBit.R3, true)
+            // Initial contact is analog input; only a later tap release can click R3.
+            rightStickMoved = hypot((x - rightStickBase.cx).toDouble(), (y - rightStickBase.cy).toDouble()) > rightStickBase.r * 0.12f
+            uiHandler.removeCallbacks(releaseRightClick)
+            state.setButton(ButtonBit.R3, false)
             performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
             updateStick(x, y, rightStickBase, rightStickKnob) { dx, dy ->
                 state.rightX = dx
@@ -347,9 +348,8 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         val y = event.getY(index)
 
         if (id == stickPointer) {
-            if (!stickMoved && hypot((x - stickDownX).toDouble(), (y - stickDownY).toDouble()) > stickBase.r * 0.22f) {
+            if (!stickMoved && hypot((x - stickBase.cx).toDouble(), (y - stickBase.cy).toDouble()) > stickBase.r * 0.12f) {
                 stickMoved = true
-                state.setButton(ButtonBit.L3, false)
             }
             updateStick(x, y, stickBase, stickKnob) { dx, dy ->
                 state.leftX = dx
@@ -357,9 +357,8 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
             }
         }
         if (id == rightStickPointer) {
-            if (!rightStickMoved && hypot((x - rightStickDownX).toDouble(), (y - rightStickDownY).toDouble()) > rightStickBase.r * 0.22f) {
+            if (!rightStickMoved && hypot((x - rightStickBase.cx).toDouble(), (y - rightStickBase.cy).toDouble()) > rightStickBase.r * 0.12f) {
                 rightStickMoved = true
-                state.setButton(ButtonBit.R3, false)
             }
             updateStick(x, y, rightStickBase, rightStickKnob) { dx, dy ->
                 state.rightX = dx
@@ -372,23 +371,30 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         val id = event.getPointerId(index)
 
         if (id == stickPointer) {
+            if (!stickMoved) emitStickClick(ButtonBit.L3, releaseLeftClick)
             stickPointer = -1
             stickKnob = PointF(stickBase.cx, stickBase.cy)
             state.leftX = 0
             state.leftY = 0
-            state.setButton(ButtonBit.L3, false)
             stickMoved = false
         }
         if (id == rightStickPointer) {
+            if (!rightStickMoved) emitStickClick(ButtonBit.R3, releaseRightClick)
             rightStickPointer = -1
             rightStickKnob = PointF(rightStickBase.cx, rightStickBase.cy)
             state.rightX = 0
             state.rightY = 0
-            state.setButton(ButtonBit.R3, false)
             rightStickMoved = false
         }
 
         activePointerToRect.remove(id)?.let { applyRect(it, false) }
+    }
+
+    private fun emitStickClick(bit: Int, releaseAction: Runnable) {
+        uiHandler.removeCallbacks(releaseAction)
+        state.setButton(bit, true)
+        // The UDP sender runs at 60 Hz, so keep a tap pulse long enough to be received.
+        uiHandler.postDelayed(releaseAction, 100L)
     }
 
     private fun applyRect(r: Rect2, pressed: Boolean) {
@@ -452,6 +458,8 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
     }
 
     private fun resetInputState() {
+        uiHandler.removeCallbacks(releaseLeftClick)
+        uiHandler.removeCallbacks(releaseRightClick)
         stickPointer = -1
         rightStickPointer = -1
         stickMoved = false
