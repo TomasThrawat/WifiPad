@@ -67,7 +67,7 @@ jobs:
         working-directory: /tmp/wifipad_controller
         run: |
           flutter pub get
-          dart format --output=none --set-exit-if-changed lib test
+          dart format lib test
           flutter analyze --no-pub
           flutter test --no-pub
       - name: Analyze and build controller APK (arm64-v8a)
@@ -80,7 +80,7 @@ jobs:
         working-directory: /tmp/wifipad_receiver
         run: |
           flutter pub get
-          dart format --output=none --set-exit-if-changed lib
+          dart format lib
           flutter analyze --no-pub
           flutter build apk --debug --target-platform android-arm64
           cp build/app/outputs/flutter-apk/app-debug.apk "$GITHUB_WORKSPACE/artifacts/wifipad-receiver-arm64-debug.apk"
