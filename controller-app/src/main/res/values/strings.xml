@@ -12,6 +12,8 @@
     <string name="settings_title">Controller settings</string>
     <string name="settings_subtitle">Customize the controller layout visually. Changes are applied when you tap Apply.</string>
     <string name="settings_editor_hint">Tap a control to select it. Drag it to move it. Only the selected control gets the size and Show controls below.</string>
+    <string name="settings_profile_title">Console / emulator layout</string>
+    <string name="settings_profile_value">Button layout: %1$s</string>
     <string name="settings_show">Show</string>
     <string name="settings_reset">Reset</string>
     <string name="settings_apply">Apply</string>
@@ -24,7 +26,8 @@
     <string name="settings_horizontal_value">%1$d%%</string>
     <string name="settings_vertical_value">%1$d%%</string>
     <string name="settings_position_value">Position: %1$d%%, %2$d%%</string>
-    <string name="control_stick">Analog stick</string>
+    <string name="control_stick">Left analog stick (L3 click)</string>
+    <string name="control_right_stick">Right analog stick (R3 click)</string>
     <string name="control_dpad">D-pad</string>
     <string name="control_face">A / B / X / Y buttons</string>
     <string name="control_left_shoulder">Left L1 / L2</string>

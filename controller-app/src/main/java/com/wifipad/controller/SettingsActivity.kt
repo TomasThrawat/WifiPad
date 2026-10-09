@@ -6,6 +6,7 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.button.MaterialButton
@@ -25,6 +26,7 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var showCheckBox: MaterialCheckBox
     private lateinit var sizeSlider: Slider
     private lateinit var sizeValue: MaterialTextView
+    private lateinit var profileButton: MaterialButton
     private var selectedGroup: ControlGroup = ControlGroup.STICK
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -80,6 +82,25 @@ class SettingsActivity : AppCompatActivity() {
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                bottomMargin = dp(14)
+            }
+        )
+
+        profileButton = MaterialButton(this).apply {
+            isAllCaps = false
+            cornerRadius = dp(16)
+            text = getString(
+                R.string.settings_profile_value,
+                ControlSettingsStore.loadProfile(this@SettingsActivity).title
+            )
+            setOnClickListener { showProfileDialog() }
+        }
+        content.addView(
+            profileButton,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dp(52)
             ).apply {
                 bottomMargin = dp(14)
             }
@@ -393,8 +414,34 @@ class SettingsActivity : AppCompatActivity() {
         )
     }
 
+    private fun showProfileDialog() {
+        val profiles = ControllerProfile.values()
+        val current = ControlSettingsStore.loadProfile(this)
+        AlertDialog.Builder(this)
+            .setTitle(R.string.settings_profile_title)
+            .setSingleChoiceItems(
+                profiles.map { it.title }.toTypedArray(),
+                profiles.indexOf(current)
+            ) { dialog, index ->
+                val selected = profiles[index]
+                ControlSettingsStore.saveProfile(this, selected)
+                val savedRightStick = ControlSettingsStore.load(this, ControlGroup.RIGHT_STICK)
+                ControlSettingsStore.save(
+                    this,
+                    ControlGroup.RIGHT_STICK,
+                    savedRightStick.copy(visible = selected.rightStickVisible)
+                )
+                preview.setProfile(selected)
+                profileButton.text = getString(R.string.settings_profile_value, selected.title)
+                dialog.dismiss()
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
     private fun groupLabel(group: ControlGroup): String = when (group) {
         ControlGroup.STICK -> getString(R.string.control_stick)
+        ControlGroup.RIGHT_STICK -> getString(R.string.control_right_stick)
         ControlGroup.DPAD -> getString(R.string.control_dpad)
         ControlGroup.FACE -> getString(R.string.control_face)
         ControlGroup.LEFT_SHOULDER -> getString(R.string.control_left_shoulder)
