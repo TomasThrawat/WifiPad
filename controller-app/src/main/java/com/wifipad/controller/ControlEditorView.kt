@@ -218,7 +218,8 @@ class ControlEditorView(context: Context) : View(context) {
             .forEach { group ->
                 val settings = getSelectedSettings(group)
                 when (group) {
-                    ControlGroup.STICK -> {
+                    ControlGroup.STICK,
+                    ControlGroup.RIGHT_STICK -> {
                         val center = getCenter(settings)
                         val radius = size * 0.19f * settings.scale
                         if (hypot(
@@ -279,7 +280,8 @@ class ControlEditorView(context: Context) : View(context) {
         val alpha = if (settings.visible) 255 else 65
 
         when (group) {
-            ControlGroup.STICK -> drawStick(canvas, settings, size, alpha)
+            ControlGroup.STICK,
+            ControlGroup.RIGHT_STICK -> drawStick(canvas, settings, size, alpha)
             ControlGroup.DPAD -> drawDpad(canvas, settings, size, alpha)
             ControlGroup.FACE -> drawFace(canvas, settings, size, alpha)
             ControlGroup.LEFT_SHOULDER,
@@ -463,7 +465,8 @@ class ControlEditorView(context: Context) : View(context) {
         settings: ControlSettings,
         size: Float
     ): Float = when (group) {
-        ControlGroup.STICK -> size * 0.19f * settings.scale
+        ControlGroup.STICK,
+        ControlGroup.RIGHT_STICK -> size * 0.19f * settings.scale
         ControlGroup.DPAD -> {
             val button = size * 0.072f * settings.scale
             val gap = size * 0.020f * settings.scale
@@ -483,7 +486,8 @@ class ControlEditorView(context: Context) : View(context) {
         settings: ControlSettings,
         size: Float
     ): Float = when (group) {
-        ControlGroup.STICK -> size * 0.19f * settings.scale
+        ControlGroup.STICK,
+        ControlGroup.RIGHT_STICK -> size * 0.19f * settings.scale
         ControlGroup.DPAD -> {
             val button = size * 0.072f * settings.scale
             val gap = size * 0.020f * settings.scale

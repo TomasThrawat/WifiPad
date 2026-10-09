@@ -46,6 +46,37 @@ class GamepadStateTest {
     }
 
     @Test
+    fun dpadCodesSupportCardinalAndDiagonalDirections() {
+        assertEquals(1, DpadCode.fromPressedDirections(1))
+        assertEquals(2, DpadCode.fromPressedDirections(1 or 2))
+        assertEquals(3, DpadCode.fromPressedDirections(2))
+        assertEquals(4, DpadCode.fromPressedDirections(2 or 4))
+        assertEquals(5, DpadCode.fromPressedDirections(4))
+        assertEquals(6, DpadCode.fromPressedDirections(4 or 8))
+        assertEquals(7, DpadCode.fromPressedDirections(8))
+        assertEquals(8, DpadCode.fromPressedDirections(8 or 1))
+        assertEquals(0, DpadCode.fromPressedDirections(0))
+        assertEquals(0, DpadCode.fromPressedDirections(1 or 4))
+    }
+
+    @Test
+    fun universalControllerHasStartSelectAndStickClickBits() {
+        val state = GamepadState()
+        state.setButton(ButtonBit.SELECT, true)
+        state.setButton(ButtonBit.START, true)
+        state.setButton(ButtonBit.MODE, true)
+        state.setButton(ButtonBit.L3, true)
+        state.setButton(ButtonBit.R3, true)
+        assertEquals(
+            ButtonBit.SELECT or ButtonBit.START or ButtonBit.MODE or ButtonBit.L3 or ButtonBit.R3,
+            state.buttons
+        )
+        val packet = state.toPacket()
+        assertEquals(0xC0, packet[2].toInt() and 0xFF)
+        assertEquals(0x07, packet[3].toInt() and 0xFF)
+    }
+
+    @Test
     fun setButtonSetsAndClearsOnlyRequestedBit() {
         val state = GamepadState()
         state.setButton(ButtonBit.A, true)

@@ -395,6 +395,7 @@ class SettingsActivity : AppCompatActivity() {
 
     private fun groupLabel(group: ControlGroup): String = when (group) {
         ControlGroup.STICK -> getString(R.string.control_stick)
+        ControlGroup.RIGHT_STICK -> getString(R.string.control_right_stick)
         ControlGroup.DPAD -> getString(R.string.control_dpad)
         ControlGroup.FACE -> getString(R.string.control_face)
         ControlGroup.LEFT_SHOULDER -> getString(R.string.control_left_shoulder)

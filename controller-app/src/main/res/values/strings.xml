@@ -24,7 +24,8 @@
     <string name="settings_horizontal_value">%1$d%%</string>
     <string name="settings_vertical_value">%1$d%%</string>
     <string name="settings_position_value">Position: %1$d%%, %2$d%%</string>
-    <string name="control_stick">Analog stick</string>
+    <string name="control_stick">Left analog stick (L3 click)</string>
+    <string name="control_right_stick">Right analog stick (R3 click)</string>
     <string name="control_dpad">D-pad</string>
     <string name="control_face">A / B / X / Y buttons</string>
     <string name="control_left_shoulder">Left L1 / L2</string>

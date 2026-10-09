@@ -10,8 +10,9 @@ enum class ControlGroup(
     val defaultY: Float
 ) {
     STICK("stick", true, 1.0f, 0.22f, 0.64f),
+    RIGHT_STICK("right_stick", true, 1.0f, 0.78f, 0.64f),
     DPAD("dpad", true, 1.0f, 0.22f, 0.31f),
-    FACE("face", true, 1.0f, 0.78f, 0.64f),
+    FACE("face", true, 1.0f, 0.78f, 0.31f),
     LEFT_SHOULDER("left_shoulder", true, 1.0f, 0.12f, 0.14f),
     RIGHT_SHOULDER("right_shoulder", true, 1.0f, 0.88f, 0.14f)
 }
@@ -33,12 +34,21 @@ object ControlSettingsStore {
 
     fun load(context: Context, group: ControlGroup): ControlSettings {
         val p = prefs(context)
+        val storedY = p.getFloat(group.key + "_y", group.defaultY)
+        // Existing installs may have the old default face-button position at 64% height.
+        // Move that default to the upper-right so the new right stick has a dedicated area.
+        val migratedY = if (
+            group == ControlGroup.FACE &&
+            !p.contains("right_stick_x") &&
+            p.contains("face_y") &&
+            storedY == 0.64f
+        ) group.defaultY else storedY
         return ControlSettings(
             visible = p.getBoolean(group.key + "_visible", group.defaultVisible),
             scale = p.getFloat(group.key + "_scale", group.defaultScale)
                 .coerceIn(MIN_SCALE, MAX_SCALE),
             x = p.getFloat(group.key + "_x", group.defaultX).coerceIn(0.05f, 0.95f),
-            y = p.getFloat(group.key + "_y", group.defaultY).coerceIn(0.08f, 0.92f)
+            y = migratedY.coerceIn(0.08f, 0.92f)
         )
     }
 
