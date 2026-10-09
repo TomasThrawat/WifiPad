@@ -40,6 +40,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          git config --global init.defaultBranch main
           flutter --version
           flutter create --project-name wifipad_controller --org com.wifipad --platforms=android /tmp/wifipad_controller
           flutter create --project-name wifipad_receiver --org com.wifipad --platforms=android /tmp/wifipad_receiver
@@ -87,7 +88,7 @@ jobs:
           flutter analyze --no-pub
           flutter build apk --debug --target-platform android-arm64
           cp build/app/outputs/flutter-apk/app-debug.apk "$GITHUB_WORKSPACE/artifacts/wifipad-receiver-arm64-debug.apk"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: WifiPad-Flutter-APKs-arm64
           path: artifacts/*.apk
