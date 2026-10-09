@@ -425,12 +425,15 @@ class SettingsActivity : AppCompatActivity() {
             ) { dialog, index ->
                 val selected = profiles[index]
                 ControlSettingsStore.saveProfile(this, selected)
-                val savedRightStick = ControlSettingsStore.load(this, ControlGroup.RIGHT_STICK)
-                ControlSettingsStore.save(
-                    this,
-                    ControlGroup.RIGHT_STICK,
-                    savedRightStick.copy(visible = selected.rightStickVisible)
-                )
+                listOf(
+                    ControlGroup.STICK to selected.leftStickVisible,
+                    ControlGroup.RIGHT_STICK to selected.rightStickVisible,
+                    ControlGroup.LEFT_SHOULDER to selected.shouldersVisible,
+                    ControlGroup.RIGHT_SHOULDER to selected.shouldersVisible
+                ).forEach { (group, visible) ->
+                    val saved = ControlSettingsStore.load(this, group)
+                    ControlSettingsStore.save(this, group, saved.copy(visible = visible))
+                }
                 preview.setProfile(selected)
                 profileButton.text = getString(R.string.settings_profile_value, selected.title)
                 dialog.dismiss()

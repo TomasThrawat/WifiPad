@@ -92,8 +92,14 @@ class ControlEditorView(context: Context) : View(context) {
 
     fun setProfile(value: ControllerProfile) {
         profile = value
+        values[ControlGroup.STICK] = getSelectedSettings(ControlGroup.STICK)
+            .copy(visible = value.leftStickVisible)
         values[ControlGroup.RIGHT_STICK] = getSelectedSettings(ControlGroup.RIGHT_STICK)
             .copy(visible = value.rightStickVisible)
+        values[ControlGroup.LEFT_SHOULDER] = getSelectedSettings(ControlGroup.LEFT_SHOULDER)
+            .copy(visible = value.shouldersVisible)
+        values[ControlGroup.RIGHT_SHOULDER] = getSelectedSettings(ControlGroup.RIGHT_SHOULDER)
+            .copy(visible = value.shouldersVisible)
         invalidate()
     }
 
@@ -120,8 +126,14 @@ class ControlEditorView(context: Context) : View(context) {
             )
         }
         selectedGroup = ControlGroup.STICK
+        values[ControlGroup.STICK] = getSelectedSettings(ControlGroup.STICK)
+            .copy(visible = profile.leftStickVisible)
         values[ControlGroup.RIGHT_STICK] = getSelectedSettings(ControlGroup.RIGHT_STICK)
             .copy(visible = profile.rightStickVisible)
+        values[ControlGroup.LEFT_SHOULDER] = getSelectedSettings(ControlGroup.LEFT_SHOULDER)
+            .copy(visible = profile.shouldersVisible)
+        values[ControlGroup.RIGHT_SHOULDER] = getSelectedSettings(ControlGroup.RIGHT_SHOULDER)
+            .copy(visible = profile.shouldersVisible)
         activePointerId = -1
         invalidate()
     }
@@ -293,7 +305,13 @@ class ControlEditorView(context: Context) : View(context) {
         settings: ControlSettings,
         size: Float
     ) {
-        val alpha = if (settings.visible) 255 else 65
+        val enabledByProfile = when (group) {
+            ControlGroup.STICK -> profile.leftStickVisible
+            ControlGroup.RIGHT_STICK -> profile.rightStickVisible
+            ControlGroup.LEFT_SHOULDER, ControlGroup.RIGHT_SHOULDER -> profile.shouldersVisible
+            else -> true
+        }
+        val alpha = if (settings.visible && enabledByProfile) 255 else 65
 
         when (group) {
             ControlGroup.STICK,

@@ -18,17 +18,20 @@ enum class ControlGroup(
 }
 
 data class FaceButtonLayout(val dx: Int, val dy: Int, val bit: Int, val label: String)
+data class AuxiliaryButtonLayout(val dx: Int, val dy: Int, val bit: Int, val label: String)
 
 enum class ControllerProfile(
     val key: String,
     val title: String,
-    val rightStickVisible: Boolean
+    val leftStickVisible: Boolean,
+    val rightStickVisible: Boolean,
+    val shouldersVisible: Boolean
 ) {
-    RETRO("retro", "Retro / Xbox", true),
-    PLAYSTATION("playstation", "PlayStation (△ ○ × □)", true),
-    PSP("psp", "PSP", true),
-    NINTENDO("nintendo", "Nintendo / SNES", true),
-    NES("nes", "NES (A / B)", false);
+    RETRO("retro", "Retro / Xbox", true, true, true),
+    PLAYSTATION("playstation", "PlayStation (PS1–PS5)", true, true, true),
+    PSP("psp", "PSP", true, false, true),
+    NINTENDO("nintendo", "Nintendo / SNES / Switch", true, true, true),
+    NES("nes", "NES / Famicom", false, false, false);
 
     fun faceButtons(): List<FaceButtonLayout> = when (this) {
         RETRO -> listOf(
@@ -52,6 +55,33 @@ enum class ControllerProfile(
         NES -> listOf(
             FaceButtonLayout(-1, 0, ButtonBit.B, "B"),
             FaceButtonLayout(1, 0, ButtonBit.A, "A")
+        )
+    }
+
+    fun auxiliaryButtons(): List<AuxiliaryButtonLayout> = when (this) {
+        RETRO -> listOf(
+            AuxiliaryButtonLayout(-1, 0, ButtonBit.SELECT, "BACK"),
+            AuxiliaryButtonLayout(1, 0, ButtonBit.START, "START"),
+            AuxiliaryButtonLayout(0, 1, ButtonBit.MODE, "GUIDE")
+        )
+        PLAYSTATION -> listOf(
+            AuxiliaryButtonLayout(-1, 0, ButtonBit.SELECT, "SHARE"),
+            AuxiliaryButtonLayout(1, 0, ButtonBit.START, "OPTIONS"),
+            AuxiliaryButtonLayout(0, 1, ButtonBit.MODE, "PS")
+        )
+        PSP -> listOf(
+            AuxiliaryButtonLayout(-1, 0, ButtonBit.SELECT, "SELECT"),
+            AuxiliaryButtonLayout(1, 0, ButtonBit.START, "START"),
+            AuxiliaryButtonLayout(0, 1, ButtonBit.MODE, "HOME")
+        )
+        NINTENDO -> listOf(
+            AuxiliaryButtonLayout(-1, 0, ButtonBit.SELECT, "−"),
+            AuxiliaryButtonLayout(1, 0, ButtonBit.START, "+"),
+            AuxiliaryButtonLayout(0, 1, ButtonBit.MODE, "HOME")
+        )
+        NES -> listOf(
+            AuxiliaryButtonLayout(-1, 0, ButtonBit.SELECT, "SELECT"),
+            AuxiliaryButtonLayout(1, 0, ButtonBit.START, "START")
         )
     }
 
