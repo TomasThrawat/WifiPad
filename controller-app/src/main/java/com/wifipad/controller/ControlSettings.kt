@@ -9,11 +9,56 @@ enum class ControlGroup(
     val defaultX: Float,
     val defaultY: Float
 ) {
-    STICK("stick", true, 1.0f, 0.22f, 0.64f),
-    DPAD("dpad", true, 1.0f, 0.22f, 0.31f),
-    FACE("face", true, 1.0f, 0.78f, 0.64f),
+    STICK("stick", true, 1.0f, 0.22f, 0.66f),
+    RIGHT_STICK("right_stick", true, 1.0f, 0.78f, 0.66f),
+    DPAD("dpad", true, 1.0f, 0.22f, 0.32f),
+    FACE("face", true, 1.0f, 0.78f, 0.32f),
     LEFT_SHOULDER("left_shoulder", true, 1.0f, 0.12f, 0.14f),
     RIGHT_SHOULDER("right_shoulder", true, 1.0f, 0.88f, 0.14f)
+}
+
+data class FaceButtonLayout(val dx: Int, val dy: Int, val bit: Int, val label: String)
+
+enum class ControllerProfile(
+    val key: String,
+    val title: String,
+    val rightStickVisible: Boolean
+) {
+    RETRO("retro", "Retro / Xbox", true),
+    PLAYSTATION("playstation", "PlayStation (△ ○ × □)", true),
+    PSP("psp", "PSP", true),
+    NINTENDO("nintendo", "Nintendo / SNES", true),
+    NES("nes", "NES (A / B)", false);
+
+    fun faceButtons(): List<FaceButtonLayout> = when (this) {
+        RETRO -> listOf(
+            FaceButtonLayout(0, -1, ButtonBit.Y, "Y"),
+            FaceButtonLayout(1, 0, ButtonBit.B, "B"),
+            FaceButtonLayout(0, 1, ButtonBit.A, "A"),
+            FaceButtonLayout(-1, 0, ButtonBit.X, "X")
+        )
+        PLAYSTATION, PSP -> listOf(
+            FaceButtonLayout(0, -1, ButtonBit.Y, "△"),
+            FaceButtonLayout(1, 0, ButtonBit.B, "○"),
+            FaceButtonLayout(0, 1, ButtonBit.A, "×"),
+            FaceButtonLayout(-1, 0, ButtonBit.X, "□")
+        )
+        NINTENDO -> listOf(
+            FaceButtonLayout(0, -1, ButtonBit.X, "X"),
+            FaceButtonLayout(1, 0, ButtonBit.A, "A"),
+            FaceButtonLayout(0, 1, ButtonBit.B, "B"),
+            FaceButtonLayout(-1, 0, ButtonBit.Y, "Y")
+        )
+        NES -> listOf(
+            FaceButtonLayout(-1, 0, ButtonBit.B, "B"),
+            FaceButtonLayout(1, 0, ButtonBit.A, "A")
+        )
+    }
+
+    companion object {
+        fun fromKey(key: String?): ControllerProfile =
+            values().firstOrNull { it.key == key } ?: RETRO
+    }
 }
 
 data class ControlSettings(
@@ -25,6 +70,14 @@ data class ControlSettings(
 
 object ControlSettingsStore {
     private const val PREFS = "wifipad_controls"
+    private const val PROFILE_KEY = "controller_profile"
+
+    fun loadProfile(context: Context): ControllerProfile =
+        ControllerProfile.fromKey(prefs(context).getString(PROFILE_KEY, ControllerProfile.RETRO.key))
+
+    fun saveProfile(context: Context, profile: ControllerProfile) {
+        prefs(context).edit().putString(PROFILE_KEY, profile.key).apply()
+    }
     private const val MIN_SCALE = 0.60f
     private const val MAX_SCALE = 1.60f
 
