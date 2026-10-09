@@ -28,7 +28,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
@@ -46,6 +46,7 @@ jobs:
           cp flutter/controller/pubspec.yaml /tmp/wifipad_controller/pubspec.yaml
           cp -R flutter/controller/lib/. /tmp/wifipad_controller/lib/
           cp -R flutter/controller/test/. /tmp/wifipad_controller/test/
+          cp flutter/controller/native/AndroidManifest.xml /tmp/wifipad_controller/android/app/src/main/AndroidManifest.xml
           cp flutter/receiver/pubspec.yaml /tmp/wifipad_receiver/pubspec.yaml
           cp -R flutter/receiver/lib/. /tmp/wifipad_receiver/lib/
           APP=/tmp/wifipad_receiver/android/app
