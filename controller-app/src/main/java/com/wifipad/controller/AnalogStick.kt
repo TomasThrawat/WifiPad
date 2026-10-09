@@ -11,7 +11,9 @@ data class StickVector(
 )
 
 object AnalogStick {
-    const val DEAD_ZONE_FRACTION = 0.06f
+    // Matches the tap-versus-drag threshold in GamepadView so tiny touches
+    // remain clicks instead of unexpectedly producing a non-zero stick axis.
+    const val DEAD_ZONE_FRACTION = 0.12f
 
     /**
      * Projects a touch delta into a bounded analog stick vector.
