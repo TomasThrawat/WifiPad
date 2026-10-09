@@ -26,10 +26,6 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-24.04
-    env:
-      GIT_CONFIG_COUNT: 1
-      GIT_CONFIG_KEY_0: init.defaultBranch
-      GIT_CONFIG_VALUE_0: main
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-java@v5
@@ -44,6 +40,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          git config --global init.defaultBranch main
           flutter --version
           flutter create --project-name wifipad_controller --org com.wifipad --platforms=android /tmp/wifipad_controller
           flutter create --project-name wifipad_receiver --org com.wifipad --platforms=android /tmp/wifipad_receiver
