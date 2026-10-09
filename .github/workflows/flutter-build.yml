@@ -50,6 +50,7 @@ jobs:
           cp flutter/controller/native/AndroidManifest.xml /tmp/wifipad_controller/android/app/src/main/AndroidManifest.xml
           cp flutter/receiver/pubspec.yaml /tmp/wifipad_receiver/pubspec.yaml
           cp -R flutter/receiver/lib/. /tmp/wifipad_receiver/lib/
+          rm -f /tmp/wifipad_receiver/test/widget_test.dart
           APP=/tmp/wifipad_receiver/android/app
           mkdir -p "$APP/src/main/kotlin/com/wifipad/wifipad_receiver" "$APP/src/main/aidl/com/wifipad/wifipad_receiver"
           cp flutter/receiver/native/MainActivity.kt "$APP/src/main/kotlin/com/wifipad/wifipad_receiver/MainActivity.kt"

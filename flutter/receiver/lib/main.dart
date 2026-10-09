@@ -18,10 +18,7 @@ class WifiPadReceiverApp extends StatelessWidget {
           useMaterial3: true,
           brightness: Brightness.dark,
           scaffoldBackgroundColor: Colors.black,
-          colorScheme: const ColorScheme.dark(
-            primary: Colors.white,
-            surface: Colors.black,
-          ),
+          colorScheme: const ColorScheme.dark(primary: Colors.white, surface: Colors.black),
         ),
         home: const ReceiverPage(),
       );
@@ -53,7 +50,9 @@ class _ReceiverPageState extends State<ReceiverPage> {
   Future<void> _refresh() async {
     try {
       final raw = await _channel.invokeMethod<Map<dynamic, dynamic>>('status');
-      if (raw == null || !mounted) return;
+      if (raw == null || !mounted) {
+        return;
+      }
       final status = Map<Object?, Object?>.from(raw);
       setState(() {
         _running = status['running'] == true;
@@ -63,9 +62,13 @@ class _ReceiverPageState extends State<ReceiverPage> {
         _shizuku = '${status['shizuku'] ?? 'unknown'}';
       });
     } on PlatformException catch (error) {
-      if (mounted) setState(() => _error = error.message ?? 'Native status unavailable');
+      if (mounted) {
+        setState(() => _error = error.message ?? 'Native status unavailable');
+      }
     } catch (_) {
-      if (mounted) setState(() => _error = 'Receiver status unavailable');
+      if (mounted) {
+        setState(() => _error = 'Receiver status unavailable');
+      }
     }
   }
 
@@ -78,11 +81,17 @@ class _ReceiverPageState extends State<ReceiverPage> {
       await _channel.invokeMethod<void>('start');
       await _refresh();
     } on PlatformException catch (error) {
-      if (mounted) setState(() => _error = error.message ?? 'Could not start receiver');
+      if (mounted) {
+        setState(() => _error = error.message ?? 'Could not start receiver');
+      }
     } catch (_) {
-      if (mounted) setState(() => _error = 'Could not start receiver');
+      if (mounted) {
+        setState(() => _error = 'Could not start receiver');
+      }
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) {
+        setState(() => _busy = false);
+      }
     }
   }
 
@@ -92,9 +101,13 @@ class _ReceiverPageState extends State<ReceiverPage> {
       await _channel.invokeMethod<void>('stop');
       await _refresh();
     } on PlatformException catch (error) {
-      if (mounted) setState(() => _error = error.message ?? 'Could not stop receiver');
+      if (mounted) {
+        setState(() => _error = error.message ?? 'Could not stop receiver');
+      }
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) {
+        setState(() => _busy = false);
+      }
     }
   }
 
