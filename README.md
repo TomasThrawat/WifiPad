@@ -36,9 +36,32 @@ build/run each module (`controller-app`, `receiver-app`) to its respective
 device — or `./gradlew :controller-app:assembleDebug :receiver-app:assembleDebug`
 and sideload the two APKs from `*/build/outputs/apk/debug/`.
 
-This repo also builds both debug APKs automatically on every push to `main`
-via `.github/workflows/build.yml` (no wrapper committed — the workflow installs
-Gradle 8.7 + the Android SDK directly); download them from the run's Artifacts.
+The repository builds both native debug APKs through `.github/workflows/build.yml`
+using the Android SDK already installed on the GitHub Actions runner and Gradle
+9.8.0. The workflow runs the controller's unit tests and uploads a separate APK
+artifact for each app. No Flutter SDK or Flutter runtime is included in either APK.
+
+## Console and emulator layouts
+
+Open **Settings → Button layout** in the phone controller:
+
+* **NES (A / B)** shows only the two main buttons and hides the right stick.
+* **Nintendo / SNES** uses the Nintendo face-button arrangement (X top, A right,
+  B bottom, Y left).
+* **PlayStation** uses △, ○, × and □ labels while keeping the Android gamepad
+  key codes stable.
+* **PSP** uses PlayStation labels and keeps both analog sticks available for
+  games/emulators that can map them.
+* **Retro / Xbox** uses the standard A/B/X/Y layout.
+
+The receiver registers one virtual Xbox 360-style gamepad. This makes the input
+available to Android apps and emulators that support standard gamepads, but no
+controller can guarantee every game uses the same mapping automatically. In
+each emulator's input settings, bind the D-pad, face buttons, shoulders,
+triggers, Start/Select and analog sticks if that emulator does not map them by
+default. The D-pad supports diagonal directions when two adjacent directions
+are pressed together. Tapping an analog stick emits L3/R3; dragging it controls
+the analog axes.
 
 ## One-time setup on the TV
 

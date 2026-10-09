@@ -2,7 +2,7 @@ name: Build APKs
 
 on:
   push:
-    branches: [main]
+    branches: [main, native-console-compat]
   pull_request:
   workflow_dispatch:
 
