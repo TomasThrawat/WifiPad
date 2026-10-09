@@ -1,83 +1,42 @@
 # WifiPad
 
-A PS4-style virtual gamepad that connects over WiFi (UDP) instead of Bluetooth,
-for TVs that only support wireless debugging (ADB over WiFi) + Shizuku.
+WifiPad turns an Android phone into a Wi-Fi gamepad for an Android TV. The Flutter apps preserve the original UDP protocol and use the TV's Shizuku/uinput bridge to register a system-wide virtual Xbox 360-style controller.
 
-Two apps, one Gradle project:
+## Flutter apps (recommended)
 
-* **controller-app** — installs on your phone (OPPO A73 4G). Draws two analog
-  sticks, D-pad, face buttons, L1/R1, L2/R2, Share/PS/Options. Sends an 11-byte
-  UDP packet ~60 times/second to the TV. See `PROTOCOL.md`.
-* **receiver-app** — installs on the TV. Uses Shizuku (shell privilege, no root)
-  to run AOSP's built-in `uinput` command and register a real virtual gamepad
-  device that the whole system — including games — sees exactly like a wired
-  Xbox 360 controller, because it registers with that controller's actual
-  vendor/product ID (0x045e / 0x028e) and every stock Android build already
-  ships the matching keylayout file for it.
+The Flutter sources are in `flutter/controller/` and `flutter/receiver/`. GitHub Actions creates the Android scaffolds, injects the minimal native bridge needed for Shizuku/uinput, tests the packet protocol, and builds two `arm64-v8a` debug APKs.
 
-## How the pieces fit
+- **Phone controller** — enter the TV IP, connect, and use the on-screen sticks, D-pad, face buttons, shoulder buttons, and Start/Select/PS buttons.
+- **TV receiver** — shows the TV IP, receiver status, and received packet count. Press **START** to request Shizuku permission and start the UDP receiver; press **STOP** to stop it.
+- **Network protocol** — 11-byte UDP packets on port `27191`, approximately 60 packets/second.
+- **Builds** — [Open the Flutter GitHub Actions workflow](https://github.com/TomasThrawat/WifiPad/actions/workflows/flutter-build.yml). Open a successful run and download the `WifiPad-Flutter-APKs-arm64` artifact containing both APKs.
 
+The CI runs Dart formatting, static analysis, packet protocol tests, and both Android arm64 APK builds. The original Android modules remain in the repository because registering a real system input device through Shizuku and AOSP `uinput` requires a small Android platform bridge; Flutter alone cannot perform that privileged operation.
+
+## Setup
+
+1. Install the receiver APK on the TV and the controller APK on the phone.
+2. On the TV, enable Developer options and **Wireless debugging**.
+3. Install and start Shizuku on the TV. Pair it once using Android's wireless-debugging pairing flow.
+4. Open **WifiPad Receiver** and press **START**. Grant Shizuku permission when prompted. The screen should show the TV IP and a running status.
+5. Open **WifiPad** on the phone, enter the TV IP, and tap **CONNECT**.
+6. Keep both devices on the same private Wi-Fi network. The receiver listens on UDP port `27191`.
+
+After a TV reboot, start Shizuku again before pressing **START** in WifiPad Receiver. Re-pairing should not be necessary unless Android's wireless-debugging pairing is reset.
+
+## Original native Android modules
+
+The original `controller-app/` and `receiver-app/` modules are retained for reference and as the source of the privileged receiver bridge. Their original Gradle build remains available:
+
+```sh
+./gradlew :controller-app:assembleDebug :receiver-app:assembleDebug
 ```
- phone (controller-app)                  TV (receiver-app, via Shizuku)
- ┌─────────────────────┐   WiFi / UDP    ┌───────────────────────────────┐
- │ touch sticks/buttons │ ─────────────► │ UDP socket (shell process)     │
- │ -> GamepadState      │  port 27191    │   -> uinput JSON commands      │
- │ -> 11-byte packet    │                │   -> /dev/uinput virtual pad   │
- └─────────────────────┘                 └───────────────────────────────┘
-```
 
-No PC, no USB cable is needed at play time — wireless debugging is only used
-*once* to start Shizuku on the TV.
+See [`PROTOCOL.md`](PROTOCOL.md) for the wire format.
 
-## Build
+## Security and limitations
 
-Open the `WifiPad/` folder in Android Studio (Hedgehog+), let it sync, then
-build/run each module (`controller-app`, `receiver-app`) to its respective
-device — or `./gradlew :controller-app:assembleDebug :receiver-app:assembleDebug`
-and sideload the two APKs from `*/build/outputs/apk/debug/`.
-
-This repo also builds both debug APKs automatically on every push to `main`
-via `.github/workflows/build.yml` (no wrapper committed — the workflow installs
-Gradle 8.7 + the Android SDK directly); download them from the run's Artifacts.
-
-## One-time setup on the TV
-
-1. Settings → About → tap Build number 7x to unlock Developer options.
-2. Developer options → enable **Wireless debugging**.
-3. Install **Shizuku** (from its GitHub releases or Play Store) and
-   **receiver-app** on the TV.
-4. Open Shizuku's app, choose "Pair device with pairing code", it will show
-   the pairing screen — this uses Android's own wireless-debugging pairing
-   flow, no computer required. Confirm once.
-5. Back in Shizuku, tap "Start" — this launches the Shizuku service using the
-   wireless-debugging shell session you just paired.
-6. Open **receiver-app**, tap **Start**, grant the Shizuku permission prompt.
-   The screen shows the TV's IP and confirms it's listening.
-
-After a TV reboot, Shizuku stops (it isn't rooted, so nothing restarts it
-automatically) — reopen the Shizuku app and tap "Start" again; you will not
-need to re-pair.
-
-## On the phone
-
-Open **controller-app**, type the TV's IP shown in receiver-app, tap
-**Connect**. Both devices must be on the same WiFi network/subnet.
-
-## Verifying it worked
-
-On the TV, any app that reads gamepad input (a "gamepad tester" app, or
-Settings → Remote & accessories on some Android TV builds) should list a
-device named "Xbox 360 Controller" the moment receiver-app is started —
-even before you touch the phone's sticks, since the virtual device is
-registered immediately.
-
-## Notes / limitations
-
-* L2/R2 on the phone UI are simple press buttons (0 or 255), not a smooth
-  drag-to-analog gesture — straightforward to extend in `GamepadView.kt`
-  if a game needs a graduated trigger pull.
-* The D-pad only sends the four cardinal directions (no diagonals); the
-  wire protocol already reserves codes 2/4/6/8 for diagonals in
-  `PROTOCOL.md` if you want to add that later.
-* UDP is unencrypted and unauthenticated — fine on a private home network,
-  not something to expose past your router.
+- UDP is unencrypted and unauthenticated. Use only on a trusted private network; do not expose port `27191` to the internet.
+- L2/R2 are digital press buttons (0 or 255), not analog drag triggers.
+- The D-pad sends cardinal directions; diagonal direction codes remain reserved by the original protocol.
+- Receiver functionality depends on the TV firmware exposing a working `uinput` command and on Shizuku running with the required shell privileges.
