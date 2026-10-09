@@ -32,7 +32,7 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v6
         with:
-          gradle-version: "9.8.0"
+          gradle-version: "9.8.1"
 
       - name: Test controller and build optimized installable APKs
         run: gradle :controller-app:testDebugUnitTest :controller-app:assembleRelease :receiver-app:assembleRelease --stacktrace --warning-mode all
