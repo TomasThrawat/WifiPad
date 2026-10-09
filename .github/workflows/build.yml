@@ -34,15 +34,21 @@ jobs:
         with:
           gradle-version: "9.8.0"
 
-      - name: Build and test debug APKs
-        run: gradle :controller-app:testDebugUnitTest :controller-app:assembleDebug :receiver-app:assembleDebug --stacktrace --warning-mode all
+      - name: Test controller and build optimized installable APKs
+        run: gradle :controller-app:testDebugUnitTest :controller-app:assembleRelease :receiver-app:assembleRelease --stacktrace --warning-mode all
+
+      - name: Report APK sizes
+        run: |
+          stat -c '%n %s bytes' controller-app/build/outputs/apk/release/*.apk receiver-app/build/outputs/apk/release/*.apk
 
       - uses: actions/upload-artifact@v7
         with:
-          name: controller-app-debug
-          path: controller-app/build/outputs/apk/debug/*.apk
+          name: controller-app-release
+          path: controller-app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
 
       - uses: actions/upload-artifact@v7
         with:
-          name: receiver-app-debug
-          path: receiver-app/build/outputs/apk/debug/*.apk
+          name: receiver-app-release
+          path: receiver-app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
