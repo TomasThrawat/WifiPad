@@ -16,12 +16,12 @@ Uint8List makePacket({int buttons = 0, int leftX = 0, int leftY = 0, int rightX 
   data.setUint8(0, packetMagic);
   data.setUint8(1, packetVersion);
   data.setUint16(2, buttons & 0x7ff, Endian.little);
-  data.setInt8(4, leftX.clamp(-127, 127));
-  data.setInt8(5, leftY.clamp(-127, 127));
-  data.setInt8(6, rightX.clamp(-127, 127));
-  data.setInt8(7, rightY.clamp(-127, 127));
-  data.setUint8(8, leftTrigger.clamp(0, 255));
-  data.setUint8(9, rightTrigger.clamp(0, 255));
-  data.setUint8(10, dpad.clamp(0, 8));
+  data.setInt8(4, leftX.clamp(-127, 127).toInt());
+  data.setInt8(5, leftY.clamp(-127, 127).toInt());
+  data.setInt8(6, rightX.clamp(-127, 127).toInt());
+  data.setInt8(7, rightY.clamp(-127, 127).toInt());
+  data.setUint8(8, leftTrigger.clamp(0, 255).toInt());
+  data.setUint8(9, rightTrigger.clamp(0, 255).toInt());
+  data.setUint8(10, dpad.clamp(0, 8).toInt());
   return data.buffer.asUint8List();
 }

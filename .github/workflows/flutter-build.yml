@@ -49,17 +49,16 @@ jobs:
           cp flutter/receiver/pubspec.yaml /tmp/wifipad_receiver/pubspec.yaml
           cp -R flutter/receiver/lib/. /tmp/wifipad_receiver/lib/
           APP=/tmp/wifipad_receiver/android/app
+          mkdir -p "$APP/src/main/kotlin/com/wifipad/wifipad_receiver" "$APP/src/main/aidl/com/wifipad/wifipad_receiver"
           cp flutter/receiver/native/MainActivity.kt "$APP/src/main/kotlin/com/wifipad/wifipad_receiver/MainActivity.kt"
           cp flutter/receiver/native/AndroidManifest.xml "$APP/src/main/AndroidManifest.xml"
-          mkdir -p "$APP/src/main/aidl/com/wifipad/wifipad_receiver" "$APP/src/main/kotlin/com/wifipad/wifipad_receiver"
           cp receiver-app/src/main/aidl/com/wifipad/receiver/IGamepadService.aidl "$APP/src/main/aidl/com/wifipad/wifipad_receiver/IGamepadService.aidl"
           cp receiver-app/src/main/java/com/wifipad/receiver/{GamepadUserService.kt,Protocol.kt,UinputGamepad.kt} "$APP/src/main/kotlin/com/wifipad/wifipad_receiver/"
           sed -i 's/package com\.wifipad\.receiver/package com.wifipad.wifipad_receiver/' "$APP/src/main/aidl/com/wifipad/wifipad_receiver/IGamepadService.aidl" "$APP/src/main/kotlin/com/wifipad/wifipad_receiver/"*.kt
           python3 - <<'PY'
           from pathlib import Path
           p=Path('/tmp/wifipad_receiver/android/app/build.gradle.kts')
-          s=p.read_text()
-          s=s.replace('    defaultConfig {', '    defaultConfig {\n        minSdk = 30')
+          s=p.read_text().replace('minSdk = flutter.minSdkVersion', 'minSdk = 30')
           s=s.replace('android {', 'android {\n    buildFeatures { aidl = true; buildConfig = true }', 1)
           s += '\n\ndependencies {\n    implementation("dev.rikka.shizuku:api:13.1.5")\n    implementation("dev.rikka.shizuku:provider:13.1.5")\n}\n'
           p.write_text(s)
@@ -68,6 +67,7 @@ jobs:
         working-directory: /tmp/wifipad_controller
         run: |
           flutter pub get
+          dart format --output=none --set-exit-if-changed lib test
           flutter analyze --no-pub
           flutter test --no-pub
       - name: Analyze and build controller APK (arm64-v8a)
@@ -80,6 +80,7 @@ jobs:
         working-directory: /tmp/wifipad_receiver
         run: |
           flutter pub get
+          dart format --output=none --set-exit-if-changed lib
           flutter analyze --no-pub
           flutter build apk --debug --target-platform android-arm64
           cp build/app/outputs/flutter-apk/app-debug.apk "$GITHUB_WORKSPACE/artifacts/wifipad-receiver-arm64-debug.apk"
