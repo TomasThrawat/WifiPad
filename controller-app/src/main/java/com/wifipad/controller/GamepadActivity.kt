@@ -5,6 +5,7 @@ import android.os.Bundle
 import android.view.Gravity
 import android.view.WindowManager
 import android.widget.FrameLayout
+import android.widget.LinearLayout
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.button.MaterialButton
@@ -49,20 +50,13 @@ class GamepadActivity : AppCompatActivity() {
             )
         }
 
-        val settingsButton = MaterialButton(this).apply {
-            text = getString(R.string.settings)
-            isAllCaps = false
-            minHeight = 0
-            minimumHeight = 0
-            cornerRadius = dp(18)
-            setTextSize(14f)
-            setPadding(dp(16), 0, dp(16), 0)
-            backgroundTintList = ColorStateList.valueOf(
-                MaterialColors.getColor(
-                    this,
-                    com.google.android.material.R.attr.colorSurfaceContainerHigh
-                )
-            )
+        val layoutButton = actionButton(layoutButtonText()).apply {
+            setOnClickListener { showLayoutChooser(this) }
+        }
+        val sensitivityButton = actionButton(sensitivityButtonText()).apply {
+            setOnClickListener { showSensitivityChooser(this) }
+        }
+        val settingsButton = actionButton(getString(R.string.settings)).apply {
             setOnClickListener {
                 startActivity(
                     android.content.Intent(
@@ -73,11 +67,28 @@ class GamepadActivity : AppCompatActivity() {
             }
         }
 
+        val toolbarActions = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            addView(layoutButton, LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, dp(46)
+            ).apply { marginEnd = dp(4) })
+            addView(sensitivityButton, LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, dp(46)
+            ).apply {
+                marginStart = dp(4)
+                marginEnd = dp(4)
+            })
+            addView(settingsButton, LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, dp(46)
+            ).apply { marginStart = dp(4) })
+        }
+
         root.addView(
-            settingsButton,
+            toolbarActions,
             FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.WRAP_CONTENT,
-                dp(48),
+                dp(46),
                 Gravity.TOP or Gravity.CENTER_HORIZONTAL
             ).apply {
                 topMargin = dp(10)
@@ -98,6 +109,68 @@ class GamepadActivity : AppCompatActivity() {
             }
         }
         sender.start(host, Protocol.DEFAULT_PORT)
+    }
+
+    private fun showLayoutChooser(button: MaterialButton) {
+        val layouts = ControllerLayout.values()
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle(R.string.layout_title)
+            .setSingleChoiceItems(
+                layouts.map { getString(it.titleResId) }.toTypedArray(),
+                layouts.indexOf(ControllerLayoutStore.load(this))
+            ) { dialog, which ->
+                ControllerLayoutStore.save(this, layouts[which])
+                padView.reloadSettings()
+                button.text = layoutButtonText()
+                dialog.dismiss()
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun showSensitivityChooser(button: MaterialButton) {
+        val levels = StickSensitivity.values()
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle(R.string.sensitivity_title)
+            .setSingleChoiceItems(
+                levels.map { getString(it.titleResId) }.toTypedArray(),
+                levels.indexOf(ControllerLayoutStore.loadSensitivity(this))
+            ) { dialog, which ->
+                ControllerLayoutStore.saveSensitivity(this, levels[which])
+                padView.reloadSettings()
+                button.text = sensitivityButtonText()
+                dialog.dismiss()
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun layoutButtonText(): String =
+        getString(
+            R.string.layout_button,
+            getString(ControllerLayoutStore.load(this).titleResId)
+        )
+
+    private fun sensitivityButtonText(): String =
+        getString(
+            R.string.sensitivity_button,
+            getString(ControllerLayoutStore.loadSensitivity(this).titleResId)
+        )
+
+    private fun actionButton(label: String) = MaterialButton(this).apply {
+        text = label
+        isAllCaps = false
+        minHeight = 0
+        minimumHeight = 0
+        cornerRadius = dp(18)
+        setTextSize(13f)
+        setPadding(dp(10), 0, dp(10), 0)
+        backgroundTintList = ColorStateList.valueOf(
+            MaterialColors.getColor(
+                this,
+                com.google.android.material.R.attr.colorSurfaceContainerHigh
+            )
+        )
     }
 
     override fun onResume() {

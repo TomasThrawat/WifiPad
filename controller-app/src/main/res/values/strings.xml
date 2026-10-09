@@ -30,6 +30,16 @@
     <string name="control_face">A / B / X / Y buttons</string>
     <string name="control_left_shoulder">Left L1 / L2</string>
     <string name="control_right_shoulder">Right R1 / R2</string>
+    <string name="layout_button">Layout: %1$s</string>
+    <string name="layout_title">Controller layout</string>
+    <string name="layout_universal">Universal (Xbox)</string>
+    <string name="layout_nintendo">Nintendo</string>
+    <string name="layout_playstation">PlayStation</string>
+    <string name="sensitivity_button">Stick: %1$s</string>
+    <string name="sensitivity_title">Analog stick sensitivity</string>
+    <string name="sensitivity_low">Low</string>
+    <string name="sensitivity_normal">Normal</string>
+    <string name="sensitivity_high">High</string>
     <string name="status_not_connected">Not connected</string>
     <string name="status_sending">Sending to %1$s:%2$d</string>
     <string name="status_error">Error: %1$s</string>

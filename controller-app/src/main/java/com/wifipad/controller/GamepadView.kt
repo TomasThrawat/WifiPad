@@ -13,7 +13,6 @@ import android.view.View
 import com.google.android.material.color.MaterialColors
 import kotlin.math.hypot
 import kotlin.math.min
-import kotlin.math.roundToInt
 
 class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
 
@@ -32,6 +31,7 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
     private var stickPointer = -1
     private var stickKnob = PointF(0f, 0f)
     private var stickMoved = false
+    private var stickSensitivity = StickSensitivity.NORMAL.multiplier
     private val uiHandler = Handler(Looper.getMainLooper())
     private val releaseLeftClick = Runnable { state.setButton(ButtonBit.L3, false) }
 
@@ -102,6 +102,7 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         for (group in ControlGroup.values()) {
             settings[group] = ControlSettingsStore.load(context, group)
         }
+        stickSensitivity = ControllerLayoutStore.loadSensitivity(context).multiplier
     }
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
@@ -143,12 +144,26 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         val faceCx = w * face.x
         val faceCy = h * face.y
         faceButtons.clear()
-        faceButtons += Rect2(sq(faceCx, faceCy - faceSpacing, faceButton), ButtonBit.Y, "Y", group = ControlGroup.FACE)
-        faceButtons += Rect2(sq(faceCx + faceSpacing, faceCy, faceButton), ButtonBit.B, "B", group = ControlGroup.FACE)
-        faceButtons += Rect2(sq(faceCx, faceCy + faceSpacing, faceButton), ButtonBit.A, "A", group = ControlGroup.FACE)
-        faceButtons += Rect2(sq(faceCx - faceSpacing, faceCy, faceButton), ButtonBit.X, "X", group = ControlGroup.FACE)
+        ControllerLayoutStore.load(context).faceButtons().forEach { spec ->
+            val centerX = when (spec.position) {
+                FaceButtonPosition.TOP, FaceButtonPosition.BOTTOM -> faceCx
+                FaceButtonPosition.RIGHT -> faceCx + faceSpacing
+                FaceButtonPosition.LEFT -> faceCx - faceSpacing
+            }
+            val centerY = when (spec.position) {
+                FaceButtonPosition.LEFT, FaceButtonPosition.RIGHT -> faceCy
+                FaceButtonPosition.TOP -> faceCy - faceSpacing
+                FaceButtonPosition.BOTTOM -> faceCy + faceSpacing
+            }
+            faceButtons += Rect2(
+                sq(centerX, centerY, faceButton),
+                spec.bit,
+                spec.label,
+                group = ControlGroup.FACE
+            )
+        }
 
-        // One shared system-button cluster serves NES, PSP, PlayStation, Nintendo and retro emulators.
+        // One shared system-button cluster serves all supported retro and console layouts.
         systemButtons.clear()
         val systemHalf = s * 0.045f
         systemButtons += Rect2(sq(w * 0.45f, h * 0.52f, systemHalf), ButtonBit.SELECT, "SELECT", group = ControlGroup.FACE)
@@ -439,22 +454,15 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         knob: PointF,
         apply: (Byte, Byte) -> Unit
     ) {
-        var dx = x - base.cx
-        var dy = y - base.cy
-        val dist = hypot(dx.toDouble(), dy.toDouble()).toFloat()
-
-        if (dist > base.r) {
-            val scale = base.r / dist
-            dx *= scale
-            dy *= scale
-        }
-
-        val nx = (dx / base.r * 127f).roundToInt().coerceIn(-127, 127)
-        val ny = (dy / base.r * 127f).roundToInt().coerceIn(-127, 127)
-
-        knob.x = base.cx + dx
-        knob.y = base.cy + dy
-        apply(nx.toByte(), ny.toByte())
+        val vector = AnalogStick.project(
+            x - base.cx,
+            y - base.cy,
+            base.r,
+            stickSensitivity
+        )
+        knob.x = base.cx + vector.offsetX
+        knob.y = base.cy + vector.offsetY
+        apply(vector.axisX, vector.axisY)
     }
 
     private fun resetInputState() {
