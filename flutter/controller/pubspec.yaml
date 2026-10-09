@@ -1,0 +1,15 @@
+name: wifipad_controller
+description: Flutter Wi-Fi gamepad controller for WifiPad.
+publish_to: none
+version: 1.0.0+1
+environment:
+  sdk: '>=3.4.0 <4.0.0'
+dependencies:
+  flutter:
+    sdk: flutter
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  test: ^1.25.8
+flutter:
+  uses-material-design: true
