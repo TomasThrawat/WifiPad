@@ -1,0 +1,233 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+void main() => runApp(const WifiPadReceiverApp());
+
+const _channel = MethodChannel('wifipad/receiver');
+
+class WifiPadReceiverApp extends StatelessWidget {
+  const WifiPadReceiverApp({super.key});
+
+  @override
+  Widget build(BuildContext context) => MaterialApp(
+        title: 'WifiPad Receiver',
+        debugShowCheckedModeBanner: false,
+        theme: ThemeData(
+          useMaterial3: true,
+          brightness: Brightness.dark,
+          scaffoldBackgroundColor: Colors.black,
+          colorScheme: const ColorScheme.dark(primary: Colors.white, surface: Colors.black),
+        ),
+        home: const ReceiverPage(),
+      );
+}
+
+class ReceiverPage extends StatefulWidget {
+  const ReceiverPage({super.key});
+
+  @override
+  State<ReceiverPage> createState() => _ReceiverPageState();
+}
+
+class _ReceiverPageState extends State<ReceiverPage> {
+  Timer? _poller;
+  bool _busy = false;
+  bool _running = false;
+  String _ip = 'Checking network…';
+  String _error = '';
+  String _shizuku = 'Checking Shizuku…';
+  int _packets = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _refresh();
+    _poller = Timer.periodic(const Duration(seconds: 1), (_) => _refresh());
+  }
+
+  Future<void> _refresh() async {
+    try {
+      final raw = await _channel.invokeMethod<Map<dynamic, dynamic>>('status');
+      if (raw == null || !mounted) {
+        return;
+      }
+      final status = Map<Object?, Object?>.from(raw);
+      setState(() {
+        _running = status['running'] == true;
+        _ip = '${status['ip'] ?? 'unknown'}';
+        _packets = (status['packets'] as num?)?.toInt() ?? 0;
+        _error = '${status['error'] ?? ''}';
+        _shizuku = '${status['shizuku'] ?? 'unknown'}';
+      });
+    } on PlatformException catch (error) {
+      if (mounted) {
+        setState(() => _error = error.message ?? 'Native status unavailable');
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _error = 'Receiver status unavailable');
+      }
+    }
+  }
+
+  Future<void> _start() async {
+    setState(() {
+      _busy = true;
+      _error = '';
+    });
+    try {
+      await _channel.invokeMethod<void>('start');
+      await _refresh();
+    } on PlatformException catch (error) {
+      if (mounted) {
+        setState(() => _error = error.message ?? 'Could not start receiver');
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _error = 'Could not start receiver');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _busy = false);
+      }
+    }
+  }
+
+  Future<void> _stop() async {
+    setState(() => _busy = true);
+    try {
+      await _channel.invokeMethod<void>('stop');
+      await _refresh();
+    } on PlatformException catch (error) {
+      if (mounted) {
+        setState(() => _error = error.message ?? 'Could not stop receiver');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _busy = false);
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _poller?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        body: SafeArea(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 760),
+              child: Padding(
+                padding: const EdgeInsets.all(28),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Icon(Icons.sports_esports, size: 64),
+                    const SizedBox(height: 18),
+                    const Text(
+                      'WifiPad Receiver',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 30, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 24),
+                    Card(
+                      color: const Color(0xFF171717),
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          children: [
+                            Icon(
+                              _running ? Icons.check_circle : Icons.wifi,
+                              size: 42,
+                              color: _running ? Colors.greenAccent : Colors.white70,
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              _running ? 'RECEIVER RUNNING' : 'RECEIVER STOPPED',
+                              style: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.2),
+                            ),
+                            const SizedBox(height: 18),
+                            _row('TV IP', _ip),
+                            _row('UDP port', '27191'),
+                            _row('Packets received', '$_packets'),
+                            _row('Shizuku', _shizuku),
+                            if (_error.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 14),
+                                child: Text(
+                                  _error,
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(color: Colors.orangeAccent),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: FilledButton.icon(
+                            onPressed: _busy || _running ? null : _start,
+                            icon: const Icon(Icons.play_arrow),
+                            label: Padding(
+                              padding: const EdgeInsets.all(14),
+                              child: Text(
+                                _busy ? 'PLEASE WAIT…' : 'START',
+                                style: const TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: _busy || !_running ? null : _stop,
+                            icon: const Icon(Icons.stop),
+                            label: const Padding(
+                              padding: EdgeInsets.all(14),
+                              child: Text('STOP'),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Start Shizuku first. Grant the permission prompt when asked. Keep the phone and TV on the same Wi-Fi network.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.white60),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+  Widget _row(String label, String value) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 5),
+        child: Row(
+          children: [
+            Expanded(child: Text(label, style: const TextStyle(color: Colors.white60))),
+            const SizedBox(width: 12),
+            Flexible(
+              child: Text(
+                value,
+                textAlign: TextAlign.end,
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        ),
+      );
+}
