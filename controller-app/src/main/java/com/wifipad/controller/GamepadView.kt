@@ -34,6 +34,7 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
     private val dpadButtons = mutableListOf<Rect2>()
     private val shoulderButtons = mutableListOf<Rect2>()
     private val triggerButtons = mutableListOf<Rect2>()
+    private val systemButtons = mutableListOf<Rect2>()
     private val activePointerToRect = mutableMapOf<Int, Rect2>()
     private val settings = mutableMapOf<ControlGroup, ControlSettings>()
 
@@ -131,6 +132,23 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         faceButtons += Rect2(sq(faceCx, faceCy + faceSpacing, faceButton), ButtonBit.A, "A", group = ControlGroup.FACE)
         faceButtons += Rect2(sq(faceCx - faceSpacing, faceCy, faceButton), ButtonBit.X, "X", group = ControlGroup.FACE)
 
+        systemButtons.clear()
+        val startWidth = s * 0.16f
+        val startHeight = s * 0.07f
+        val startCx = w / 2f
+        val startCy = h * 0.22f
+        systemButtons += Rect2(
+            RectF(
+                startCx - startWidth / 2f,
+                startCy - startHeight / 2f,
+                startCx + startWidth / 2f,
+                startCy + startHeight / 2f
+            ),
+            ButtonBit.START,
+            "START",
+            group = ControlGroup.FACE
+        )
+
         shoulderButtons.clear()
         triggerButtons.clear()
 
@@ -194,6 +212,8 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
     override fun onDraw(canvas: Canvas) {
         canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), bgPaint)
 
+        systemButtons.forEach { drawButton(canvas, it) }
+
         if (settings.getValue(ControlGroup.STICK).visible) {
             drawStick(canvas, stickBase, stickKnob)
         }
@@ -231,12 +251,8 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
             val radius = min(r.r.width(), r.r.height()) / 2f
             canvas.drawCircle(r.r.centerX(), r.r.centerY(), radius, paint)
         } else {
-            canvas.drawRoundRect(
-                r.r,
-                r.r.width() * 0.32f,
-                r.r.width() * 0.32f,
-                paint
-            )
+            val cornerRadius = min(r.r.width(), r.r.height()) * 0.32f
+            canvas.drawRoundRect(r.r, cornerRadius, cornerRadius, paint)
         }
 
         val labelPaint = if (pressed) {
@@ -332,6 +348,8 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
     }
 
     private fun findRect(x: Float, y: Float): Rect2? {
+        systemButtons.firstOrNull { it.r.contains(x, y) }?.let { return it }
+
         val allLists = listOf(dpadButtons, faceButtons, shoulderButtons, triggerButtons)
         for (list in allLists) {
             for (r in list) {
