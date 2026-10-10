@@ -31,18 +31,19 @@ No PC, no USB cable is needed at play time — wireless debugging is only used
 
 ## Build
 
-Open the `WifiPad/` folder in Android Studio (Hedgehog+), let it sync, then
-build/run each module (`controller-app`, `receiver-app`) to its respective
-device — or `./gradlew :controller-app:assembleDebug :receiver-app:assembleDebug`
-and sideload the two APKs from `*/build/outputs/apk/debug/`.
+Open the `WifiPad/` folder in Android Studio, let it sync, then build/run each
+module (`controller-app`, `receiver-app`) to its respective device — or
+`./gradlew :controller-app:assembleDebug :receiver-app:assembleDebug` and
+sideload the two APKs from `*/build/outputs/apk/debug/`.
 
-This repo also builds both debug APKs automatically on every push to `main`
-via `.github/workflows/build.yml`. CI uses Gradle 9.8.1 and the preinstalled
-Android SDK. It currently uses Android Gradle Plugin 9.5.0-alpha09 (Preview)
-to fix an upstream `Configuration.setVisible()` deprecation emitted by AGP
-9.4.1 with Gradle 9.8.0. The repository does not include a `gradlew` wrapper
-script, so use Android Studio or an installed Gradle version matching the
-workflow when building locally.
+This repo builds both debug APKs automatically on every push to `main` via
+`.github/workflows/build.yml`. CI uses Gradle 9.8.1, Android Gradle Plugin
+9.4.1, and Kotlin Gradle Plugin 2.4.21. Built-in Kotlin is explicitly disabled
+so the build uses the declared Kotlin plugin version instead of AGP's bundled
+older Kotlin plugin, which emitted deprecated Gradle API warnings. The Android
+SDK is preinstalled on the CI runner. The repository does not include a
+`gradlew` wrapper script, so use Android Studio or an installed Gradle version
+matching the workflow when building locally.
 
 ## One-time setup on the TV
 
