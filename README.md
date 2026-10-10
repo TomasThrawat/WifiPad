@@ -37,13 +37,13 @@ module (`controller-app`, `receiver-app`) to its respective device — or
 sideload the two APKs from `*/build/outputs/apk/debug/`.
 
 This repo builds both debug APKs automatically on every push to `main` via
-`.github/workflows/build.yml`. CI uses Gradle 9.8.1, Android Gradle Plugin
-9.4.1, and Kotlin Gradle Plugin 2.4.21. Built-in Kotlin is explicitly disabled
-so the build uses the declared Kotlin plugin version instead of AGP's bundled
-older Kotlin plugin, which emitted deprecated Gradle API warnings. The Android
-SDK is preinstalled on the CI runner. The repository does not include a
-`gradlew` wrapper script, so use Android Studio or an installed Gradle version
-matching the workflow when building locally.
+`.github/workflows/build.yml`. CI uses Gradle 8.14.6, Android Gradle Plugin
+8.13.2, and Kotlin Gradle Plugin 2.4.21. This stable toolchain keeps the
+external Kotlin plugin compatible with the Android plugin and avoids the
+Gradle 9 `Configuration.setVisible()` deprecation warnings found in the newer
+toolchain. The Android SDK is preinstalled on the CI runner. The repository
+does not include a `gradlew` wrapper script, so use Android Studio or an
+installed Gradle version matching the workflow when building locally.
 
 ## One-time setup on the TV
 
