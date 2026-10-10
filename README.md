@@ -37,10 +37,12 @@ device — or `./gradlew :controller-app:assembleDebug :receiver-app:assembleDeb
 and sideload the two APKs from `*/build/outputs/apk/debug/`.
 
 This repo also builds both debug APKs automatically on every push to `main`
-via `.github/workflows/build.yml`. CI uses Gradle 9.8.0 and the preinstalled
-Android SDK; download both APKs from the run's Artifacts. The repository does
-not include a `gradlew` wrapper script, so use Android Studio or an installed
-Gradle version matching the workflow when building locally.
+via `.github/workflows/build.yml`. CI uses Gradle 9.8.1 and the preinstalled
+Android SDK. It currently uses Android Gradle Plugin 9.5.0-alpha09 (Preview)
+to fix an upstream `Configuration.setVisible()` deprecation emitted by AGP
+9.4.1 with Gradle 9.8.0. The repository does not include a `gradlew` wrapper
+script, so use Android Studio or an installed Gradle version matching the
+workflow when building locally.
 
 ## One-time setup on the TV
 
@@ -69,17 +71,17 @@ Open **controller-app**, type the TV's IP shown in receiver-app, tap
 
 On the TV, any app that reads gamepad input (a "gamepad tester" app, or
 Settings → Remote & accessories on some Android TV builds) should list a
-device named "Xbox 360 Controller" the moment receiver-app is started —
-even before you touch the phone's sticks, since the virtual device is
-registered immediately.
+device named "Xbox 360 Controller" the moment receiver-app is started — even
+before you touch the phone's sticks, since the virtual device is registered
+immediately.
 
 ## Notes / limitations
 
 * L2/R2 on the phone UI are simple press buttons (0 or 255), not a smooth
   drag-to-analog gesture — straightforward to extend in `GamepadView.kt`
   if a game needs a graduated trigger pull.
-* The D-pad only sends the four cardinal directions (no diagonals); the
-  wire protocol already reserves codes 2/4/6/8 for diagonals in
-  `PROTOCOL.md` if you want to add that later.
+* The D-pad only sends the four cardinal directions (no diagonals); the wire
+  protocol already reserves codes 2/4/6/8 for diagonals in `PROTOCOL.md` if
+  you want to add that later.
 * UDP is unencrypted and unauthenticated — fine on a private home network,
   not something to expose past your router.
