@@ -13,8 +13,17 @@ class GamepadUserService : IGamepadService.Stub() {
     private val running = AtomicBoolean(false)
     @Volatile private var error: String = ""
     private val received = AtomicLong(0)
+    private val inputLock = Any()
+    private val eventBuffer = IntArray(60)
+    // All input-state cache access is serialized by inputLock.
     private var lastButtons = 0
     private var lastDpad = -1
+    private var lastLeftX = 0
+    private var lastLeftY = 0
+    private var lastRightX = 0
+    private var lastRightY = 0
+    private var lastLeftTrigger = 0
+    private var lastRightTrigger = 0
     @Volatile private var lastPacketNanos = 0L
     @Volatile private var failsafeApplied = false
 
@@ -91,10 +100,14 @@ class GamepadUserService : IGamepadService.Stub() {
                 if (packet.length < Protocol.PACKET_SIZE) continue
                 val d = packet.data
                 if (d[0] != Protocol.MAGIC || d[1] != Protocol.VERSION) continue
-                received.incrementAndGet()
-                lastPacketNanos = System.nanoTime()
-                failsafeApplied = false
-                handlePacket(d, pad)
+                synchronized(inputLock) {
+                    if (running.get()) {
+                        received.incrementAndGet()
+                        lastPacketNanos = System.nanoTime()
+                        failsafeApplied = false
+                        handlePacket(d, pad)
+                    }
+                }
             } catch (e: Exception) {
                 if (running.get()) error = e.message ?: "recv error"
             }
@@ -106,15 +119,23 @@ class GamepadUserService : IGamepadService.Stub() {
         while (running.get()) {
             try { Thread.sleep(100) } catch (_: InterruptedException) { return }
             if (!running.get()) return
-            if (!failsafeApplied && System.nanoTime() - lastPacketNanos > timeoutNanos) {
-                try {
-                    neutralize(pad)
-                    failsafeApplied = true
-                } catch (_: Exception) {
-                    error = "failsafe failed"
-                    stop()
-                    return
+            var failed = false
+            synchronized(inputLock) {
+                if (running.get() && !failsafeApplied &&
+                    System.nanoTime() - lastPacketNanos > timeoutNanos
+                ) {
+                    try {
+                        neutralize(pad)
+                        failsafeApplied = true
+                    } catch (_: Exception) {
+                        error = "failsafe failed"
+                        failed = true
+                    }
                 }
+            }
+            if (failed) {
+                stop()
+                return
             }
         }
     }
@@ -129,20 +150,39 @@ class GamepadUserService : IGamepadService.Stub() {
         val rt = d[9].toInt() and 0xFF
         val dpad = d[10].toInt() and 0xFF
 
-        val events = IntArray(60)
         var count = 0
         fun add(type: Int, code: Int, value: Int) {
-            events[count++] = type
-            events[count++] = code
-            events[count++] = value
+            eventBuffer[count++] = type
+            eventBuffer[count++] = code
+            eventBuffer[count++] = value
         }
 
-        add(UinputGamepad.EV_ABS, UinputGamepad.ABS_X, leftX)
-        add(UinputGamepad.EV_ABS, UinputGamepad.ABS_Y, leftY)
-        add(UinputGamepad.EV_ABS, UinputGamepad.ABS_RX, rightX)
-        add(UinputGamepad.EV_ABS, UinputGamepad.ABS_RY, rightY)
-        add(UinputGamepad.EV_ABS, UinputGamepad.ABS_Z, lt)
-        add(UinputGamepad.EV_ABS, UinputGamepad.ABS_RZ, rt)
+        // Only emit axis updates when their value changes. This avoids writing
+        // six redundant ABS events for every idle 60 Hz packet.
+        if (leftX != lastLeftX) {
+            add(UinputGamepad.EV_ABS, UinputGamepad.ABS_X, leftX)
+            lastLeftX = leftX
+        }
+        if (leftY != lastLeftY) {
+            add(UinputGamepad.EV_ABS, UinputGamepad.ABS_Y, leftY)
+            lastLeftY = leftY
+        }
+        if (rightX != lastRightX) {
+            add(UinputGamepad.EV_ABS, UinputGamepad.ABS_RX, rightX)
+            lastRightX = rightX
+        }
+        if (rightY != lastRightY) {
+            add(UinputGamepad.EV_ABS, UinputGamepad.ABS_RY, rightY)
+            lastRightY = rightY
+        }
+        if (lt != lastLeftTrigger) {
+            add(UinputGamepad.EV_ABS, UinputGamepad.ABS_Z, lt)
+            lastLeftTrigger = lt
+        }
+        if (rt != lastRightTrigger) {
+            add(UinputGamepad.EV_ABS, UinputGamepad.ABS_RZ, rt)
+            lastRightTrigger = rt
+        }
 
         if (dpad != lastDpad) {
             val hat = hatFor(dpad)
@@ -160,17 +200,25 @@ class GamepadUserService : IGamepadService.Stub() {
             lastButtons = buttons
         }
 
-        try {
-            pad.inject(events, count)
-        } catch (_: Exception) {
-            error = "inject failed"
-            stop()
+        if (count > 0) {
+            try {
+                pad.inject(eventBuffer, count)
+            } catch (_: Exception) {
+                error = "inject failed"
+                stop()
+            }
         }
     }
 
     private fun neutralize(pad: UinputGamepad) {
         lastButtons = 0
         lastDpad = 0
+        lastLeftX = 0
+        lastLeftY = 0
+        lastRightX = 0
+        lastRightY = 0
+        lastLeftTrigger = 0
+        lastRightTrigger = 0
         pad.injectNeutral()
     }
 
@@ -191,15 +239,23 @@ class GamepadUserService : IGamepadService.Stub() {
 
     override fun stop() {
         if (!running.compareAndSet(true, false)) return
-        socket?.close()
-        socket = null
-        uinputProcess?.let {
-            try { it.outputStream.close() } catch (_: Exception) {}
-            try { it.destroy() } catch (_: Exception) {}
+        synchronized(inputLock) {
+            socket?.close()
+            socket = null
+            uinputProcess?.let {
+                try { it.outputStream.close() } catch (_: Exception) {}
+                try { it.destroy() } catch (_: Exception) {}
+            }
+            uinputProcess = null
+            lastButtons = 0
+            lastDpad = -1
+            lastLeftX = 0
+            lastLeftY = 0
+            lastRightX = 0
+            lastRightY = 0
+            lastLeftTrigger = 0
+            lastRightTrigger = 0
         }
-        uinputProcess = null
-        lastButtons = 0
-        lastDpad = -1
     }
 
     override fun isRunning(): Boolean = running.get()

@@ -37,8 +37,10 @@ device — or `./gradlew :controller-app:assembleDebug :receiver-app:assembleDeb
 and sideload the two APKs from `*/build/outputs/apk/debug/`.
 
 This repo also builds both debug APKs automatically on every push to `main`
-via `.github/workflows/build.yml` (no wrapper committed — the workflow installs
-Gradle 8.7 + the Android SDK directly); download them from the run's Artifacts.
+via `.github/workflows/build.yml`. CI uses Gradle 9.8.0 and the preinstalled
+Android SDK; download both APKs from the run's Artifacts. The repository does
+not include a `gradlew` wrapper script, so use Android Studio or an installed
+Gradle version matching the workflow when building locally.
 
 ## One-time setup on the TV
 

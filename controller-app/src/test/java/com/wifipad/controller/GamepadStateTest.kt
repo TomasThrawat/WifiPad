@@ -46,6 +46,20 @@ class GamepadStateTest {
     }
 
     @Test
+    fun startButtonIsEncodedInHighButtonByteAndCanBeReleased() {
+        val state = GamepadState()
+        state.setButton(ButtonBit.START, true)
+
+        var packet = state.toPacket()
+        assertEquals(0x00, packet[2].toInt() and 0xFF)
+        assertEquals(0x02, packet[3].toInt() and 0xFF)
+
+        state.setButton(ButtonBit.START, false)
+        packet = state.toPacket()
+        assertEquals(0x00, packet[3].toInt() and 0xFF)
+    }
+
+    @Test
     fun setButtonSetsAndClearsOnlyRequestedBit() {
         val state = GamepadState()
         state.setButton(ButtonBit.A, true)
