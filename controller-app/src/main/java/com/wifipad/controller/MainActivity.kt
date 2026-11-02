@@ -55,7 +55,7 @@ class MainActivity : AppCompatActivity() {
         val content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(0, dp(24), 0, dp(32))
-            layoutParams = ScrollView.LayoutParams(width, ScrollView.LayoutParams.WRAP_CONTENT).apply {
+            layoutParams = FrameLayout.LayoutParams(width, FrameLayout.LayoutParams.WRAP_CONTENT).apply {
                 gravity = Gravity.CENTER_HORIZONTAL
             }
         }
@@ -91,7 +91,7 @@ class MainActivity : AppCompatActivity() {
             textSize = 16f
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
             imeOptions = EditorInfo.IME_ACTION_GO
-            singleLine = true
+            setSingleLine(true)
             setPadding(dp(16), dp(16), dp(16), dp(16))
             setOnEditorActionListener { _, actionId, _ ->
                 if (actionId == EditorInfo.IME_ACTION_GO || actionId == EditorInfo.IME_ACTION_DONE) {
