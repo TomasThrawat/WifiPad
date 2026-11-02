@@ -42,11 +42,11 @@ android {
             jvmTarget.set(JvmTarget.JVM_17)
         }
     }
-}
 
-// Keep targetSdk 34 until edge-to-edge behavior on Android TV is explicitly tested.
-lint {
-    disable += "OldTargetApi"
+    // Keep targetSdk 34 until edge-to-edge behavior on Android TV is explicitly tested.
+    lint {
+        disable += "OldTargetApi"
+    }
 }
 
 dependencies {

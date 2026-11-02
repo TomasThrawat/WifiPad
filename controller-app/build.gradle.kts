@@ -37,11 +37,11 @@ android {
             jvmTarget.set(JvmTarget.JVM_17)
         }
     }
-}
 
-// Keep targetSdk 34 until edge-to-edge and large-screen behavior are explicitly tested.
-lint {
-    disable += "OldTargetApi"
+    // Keep targetSdk 34 until edge-to-edge and large-screen behavior are explicitly tested.
+    lint {
+        disable += "OldTargetApi"
+    }
 }
 
 dependencies {
