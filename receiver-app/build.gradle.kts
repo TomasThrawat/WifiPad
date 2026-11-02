@@ -7,7 +7,6 @@ plugins {
 
 android {
     namespace = "com.wifipad.receiver"
-
     compileSdk = 35
     ndkVersion = "28.2.13676358"
 
@@ -20,6 +19,11 @@ android {
         ndk {
             abiFilters.add("arm64-v8a")
         }
+    }
+
+    buildFeatures {
+        aidl = true
+        buildConfig = true
     }
 
     buildTypes {
@@ -38,11 +42,6 @@ android {
             jvmTarget.set(JvmTarget.JVM_17)
         }
     }
-
-    buildFeatures {
-        aidl = true
-        buildConfig = true
-    }
 }
 
 dependencies {
@@ -52,5 +51,4 @@ dependencies {
     implementation("dev.rikka.shizuku:api:13.1.5")
     implementation("dev.rikka.shizuku:provider:13.1.5")
     testImplementation("junit:junit:4.13.2")
-    implementation(project(":flutter"))
 }
