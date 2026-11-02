@@ -1,0 +1,73 @@
+version: 2.1
+
+jobs:
+  android-build:
+    docker:
+      - image: cimg/android:2026.08.1
+    environment:
+      GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.jvmargs=-Xmx3g"
+    resource_class: medium
+    steps:
+      - checkout
+
+      - run:
+          name: Select JDK 17
+          command: |
+            test -d /usr/lib/jvm/java-17-openjdk-amd64
+            echo 'export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64' >> "$BASH_ENV"
+            echo 'export PATH=/usr/lib/jvm/java-17-openjdk-amd64/bin:$PATH' >> "$BASH_ENV"
+            java -version
+
+      - restore_cache:
+          keys:
+            - wifipad-gradle-v1-{{ checksum "build.gradle.kts" }}-{{ checksum "settings.gradle.kts" }}
+            - wifipad-gradle-v1-
+
+      - run:
+          name: Install pinned Gradle 8.14.6
+          command: |
+            if [ ! -x "$HOME/gradle-8.14.6/bin/gradle" ]; then
+              curl --fail --location --retry 3                 https://services.gradle.org/distributions/gradle-8.14.6-bin.zip                 --output /tmp/gradle-8.14.6-bin.zip
+              unzip -q /tmp/gradle-8.14.6-bin.zip -d "$HOME"
+            fi
+            echo 'export PATH=$HOME/gradle-8.14.6/bin:$PATH' >> "$BASH_ENV"
+            "$HOME/gradle-8.14.6/bin/gradle" --version
+
+      - run:
+          name: Verify Android SDK 35
+          command: |
+            command -v sdkmanager
+            yes | sdkmanager --licenses >/dev/null
+            sdkmanager "platforms;android-35" "build-tools;35.0.0"
+            test -d "$ANDROID_HOME/platforms/android-35" ||               test -d "$ANDROID_SDK_ROOT/platforms/android-35"
+            test -d "$ANDROID_HOME/build-tools/35.0.0" ||               test -d "$ANDROID_SDK_ROOT/build-tools/35.0.0"
+
+      - run:
+          name: Run unit tests, lint, and build both APKs
+          command: |
+            gradle --no-daemon --stacktrace --warning-mode all               :controller-app:testDebugUnitTest               :receiver-app:testDebugUnitTest               :controller-app:lintDebug               :receiver-app:lintDebug               :controller-app:assembleDebug               :receiver-app:assembleDebug
+
+      - save_cache:
+          key: wifipad-gradle-v1-{{ checksum "build.gradle.kts" }}-{{ checksum "settings.gradle.kts" }}
+          paths:
+            - ~/.gradle/caches
+            - ~/.gradle/wrapper
+
+      - store_test_results:
+          path: controller-app/build/test-results
+
+      - store_test_results:
+          path: receiver-app/build/test-results
+
+      - store_artifacts:
+          path: controller-app/build/outputs/apk/debug
+          destination: controller-app-debug-apk
+
+      - store_artifacts:
+          path: receiver-app/build/outputs/apk/debug
+          destination: receiver-app-debug-apk
+
+workflows:
+  build-and-test:
+    jobs:
+      - android-build
