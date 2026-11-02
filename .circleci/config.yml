@@ -73,6 +73,10 @@ jobs:
             rm -f app
             ln -s receiver-app app
             test -f app/build.gradle.kts
+            grep -Fq 'abiFilters.add("armeabi-v7a")' receiver-app/build.gradle.kts
+            grep -Fq 'abiFilters.add("arm64-v8a")' controller-app/build.gradle.kts
+            echo "Receiver ABI filter verified: armeabi-v7a"
+            echo "Controller ABI filter preserved: arm64-v8a"
             echo "=== Receiver unit tests ==="
             gradle --no-daemon --max-workers=1 --stacktrace --warning-mode all :app:testDebugUnitTest 2>&1 | tee -a "$PWD/gradle-build.log"
             echo "=== Receiver Android Lint ==="
@@ -96,7 +100,7 @@ jobs:
               ls -lh "$apk" | tee -a apk-audit.txt
               sha256sum "$apk" | tee -a apk-audit.txt
               echo "Native libraries:" | tee -a apk-audit.txt
-              unzip -l "$apk" | grep 'lib/arm64-v8a/.*\.so' | tee -a apk-audit.txt || true
+              unzip -l "$apk" | grep -E 'lib/(armeabi-v7a|arm64-v8a)/.*\.so' | tee -a apk-audit.txt || true
               echo | tee -a apk-audit.txt
             done
 
