@@ -8,12 +8,14 @@ void main() {
   const receiver = MethodChannel('com.wifipad/receiver');
 
   tearDown(() {
-    controller.setMockMethodCallHandler(null);
-    receiver.setMockMethodCallHandler(null);
+    final messenger = TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(controller, null);
+    messenger.setMockMethodCallHandler(receiver, null);
   });
 
   testWidgets('controller page shows address field and controller action', (tester) async {
-    controller.setMockMethodCallHandler((call) async => '192.168.1.20');
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(controller, (call) async => '192.168.1.20');
     await tester.pumpWidget(const WifiPadApp(initialRoute: '/controller'));
     await tester.pumpAndSettle();
     expect(find.text('Connect to your TV'), findsOneWidget);
@@ -21,7 +23,8 @@ void main() {
   });
 
   testWidgets('receiver page shows status and start action', (tester) async {
-    receiver.setMockMethodCallHandler((call) async {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(receiver, (call) async {
       if (call.method == 'getStatus') {
         return <String, Object?>{
           'running': false,
