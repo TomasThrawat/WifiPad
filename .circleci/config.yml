@@ -48,7 +48,7 @@ jobs:
             grep -q '^flutter.hostAppProjectName=app$' .android/gradle.properties || \
               echo 'flutter.hostAppProjectName=app' >> .android/gradle.properties
             ls -la "$repo_root/flutter_ui/.android"
-            sed -i 's#^org.gradle.jvmargs=.*#org.gradle.jvmargs=-Xmx1536m -XX:MaxMetaspaceSize=512m -XX:ReservedCodeCacheSize=256m -XX:+HeapDumpOnOutOfMemoryError#' .android/gradle.properties
+            sed -i 's#^org.gradle.jvmargs=.*#org.gradle.jvmargs=-Xmx1280m -XX:MaxMetaspaceSize=640m -XX:ReservedCodeCacheSize=128m -XX:+HeapDumpOnOutOfMemoryError#' .android/gradle.properties
             grep -q '^org.gradle.parallel=false$' .android/gradle.properties || echo 'org.gradle.parallel=false' >> .android/gradle.properties
             grep -q '^org.gradle.workers.max=1$' .android/gradle.properties || echo 'org.gradle.workers.max=1' >> .android/gradle.properties
             grep -q '^kotlin.compiler.execution.strategy=in-process$' .android/gradle.properties || echo 'kotlin.compiler.execution.strategy=in-process' >> .android/gradle.properties
@@ -101,10 +101,12 @@ jobs:
             rm -f app
             ln -s controller-app app
             test -f app/build.gradle.kts
-            gradle --no-daemon --max-workers=1 --stacktrace --warning-mode all \
-              :app:testDebugUnitTest \
-              :app:lintDebug \
-              :app:assembleDebug 2>&1 | tee "$PWD/gradle-build.log"
+            echo "=== Controller unit tests ==="
+            gradle --no-daemon --max-workers=1 --stacktrace --warning-mode all :app:testDebugUnitTest 2>&1 | tee -a "$PWD/gradle-build.log"
+            echo "=== Controller Android Lint ==="
+            gradle --no-daemon --max-workers=1 --stacktrace --warning-mode all :app:lintDebug 2>&1 | tee -a "$PWD/gradle-build.log"
+            echo "=== Controller APK assembly ==="
+            gradle --no-daemon --max-workers=1 --stacktrace --warning-mode all :app:assembleDebug 2>&1 | tee -a "$PWD/gradle-build.log"
 
       - run:
           name: Build TV receiver APK
@@ -117,10 +119,12 @@ jobs:
             rm -f app
             ln -s receiver-app app
             test -f app/build.gradle.kts
-            gradle --no-daemon --max-workers=1 --stacktrace --warning-mode all \
-              :app:testDebugUnitTest \
-              :app:lintDebug \
-              :app:assembleDebug 2>&1 | tee -a "$PWD/gradle-build.log"
+            echo "=== Receiver unit tests ==="
+            gradle --no-daemon --max-workers=1 --stacktrace --warning-mode all :app:testDebugUnitTest 2>&1 | tee -a "$PWD/gradle-build.log"
+            echo "=== Receiver Android Lint ==="
+            gradle --no-daemon --max-workers=1 --stacktrace --warning-mode all :app:lintDebug 2>&1 | tee -a "$PWD/gradle-build.log"
+            echo "=== Receiver APK assembly ==="
+            gradle --no-daemon --max-workers=1 --stacktrace --warning-mode all :app:assembleDebug 2>&1 | tee -a "$PWD/gradle-build.log"
 
       - save_cache:
           key: wifipad-gradle-flutter-v2-{{ checksum "build.gradle.kts" }}-{{ checksum "settings.gradle.kts" }}
