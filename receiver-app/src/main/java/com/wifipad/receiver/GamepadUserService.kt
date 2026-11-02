@@ -167,17 +167,11 @@ class GamepadUserService : IGamepadService.Stub() {
             lastLeftY = leftY
         }
         if (lt != lastLeftTrigger) {
-            add(UinputGamepad.EV_ABS, UinputGamepad.ABS_BRAKE, lt)
-            if (TriggerMapping.isPressed(lastLeftTrigger) != TriggerMapping.isPressed(lt)) {
-                add(UinputGamepad.EV_KEY, UinputGamepad.BTN_TL2, if (TriggerMapping.isPressed(lt)) 1 else 0)
-            }
+            add(UinputGamepad.EV_ABS, UinputGamepad.ABS_Z, lt)
             lastLeftTrigger = lt
         }
         if (rt != lastRightTrigger) {
-            add(UinputGamepad.EV_ABS, UinputGamepad.ABS_GAS, rt)
-            if (TriggerMapping.isPressed(lastRightTrigger) != TriggerMapping.isPressed(rt)) {
-                add(UinputGamepad.EV_KEY, UinputGamepad.BTN_TR2, if (TriggerMapping.isPressed(rt)) 1 else 0)
-            }
+            add(UinputGamepad.EV_ABS, UinputGamepad.ABS_RZ, rt)
             lastRightTrigger = rt
         }
 

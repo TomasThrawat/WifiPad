@@ -12,8 +12,8 @@ anything changed (simpler than delta-encoding, and cheap on a LAN).
 | 5      | leftY         | int8   | -127..127, the one analog stick vertical            |
 | 6      | rightX        | int8   | legacy/reserved; ignored by receiver                |
 | 7      | rightY        | int8   | legacy/reserved; ignored by receiver                |
-| 8      | leftTrigger   | uint8  | 0..255, L2; ABS_BRAKE + BTN_TL2 at >=128            |
-| 9      | rightTrigger  | uint8  | 0..255, R2; ABS_GAS + BTN_TR2 at >=128              |
+| 8      | leftTrigger   | uint8  | 0..255, L2; mapped to AOSP Xbox keylayout ABS_Z / LTRIGGER |
+| 9      | rightTrigger  | uint8  | 0..255, R2; mapped to AOSP Xbox keylayout ABS_RZ / RTRIGGER |
 | 10     | dpad          | uint8  | 0=none 1=up 2=up-right 3=right 4=down-right 5=down 6=down-left 7=left 8=up-left |
 
 ## Button bitmask (byte 2 = bits 0–7, byte 3 = bits 8–10)
@@ -38,5 +38,6 @@ pressed simultaneously. The receiver validates D-pad values in the range 0..8.
 The receiver accepts only exact 11-byte v1 packets with the correct magic and
 version, button bits within 0x7ff, stick values in -127..127, and D-pad values
 in 0..8. Invalid packets do not refresh the watchdog. Bytes 6–7 are ignored so
-older v1 senders remain wire-compatible. The receiver maps L2/R2 to Linux
-ABS_BRAKE/ABS_GAS and also emits BTN_TL2/BTN_TR2 key transitions at value 128.
+older v1 senders remain wire-compatible. Because the receiver identifies as
+AOSP's Xbox 360 controller (VID 0x045e, PID 0x028e), L2/R2 are emitted on
+Linux ABS_Z/ABS_RZ, which that device-specific keylayout maps to LTRIGGER/RTRIGGER.

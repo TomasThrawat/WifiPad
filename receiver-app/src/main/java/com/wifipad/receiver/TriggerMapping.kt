@@ -1,12 +1,7 @@
 package com.wifipad.receiver
 
-/** Linux input codes used by Android's Generic.kl for standard gamepad triggers. */
+/** Trigger axis codes from AOSP Vendor_045e_Product_028e.kl for Xbox 360 controllers. */
 internal object TriggerMapping {
-    const val ABS_GAS = 9
-    const val ABS_BRAKE = 10
-    const val BTN_TL2 = 312
-    const val BTN_TR2 = 313
-    const val DIGITAL_THRESHOLD = 128
-
-    fun isPressed(value: Int): Boolean = value >= DIGITAL_THRESHOLD
+    const val ABS_Z = 2
+    const val ABS_RZ = 5
 }

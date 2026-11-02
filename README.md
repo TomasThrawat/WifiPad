@@ -73,8 +73,8 @@ Recognition and game compatibility depend on the TV firmware and the game.
 ## Notes / limitations
 
 * L2/R2 use the existing touch regions to produce analog values. The receiver
-  exposes them as standard Android trigger axes and also emits digital trigger
-  key transitions at the 50% point. TV keylayout behavior can vary.
+  maps them to the trigger axes in AOSP's Xbox 360 controller keylayout. OEM
+  TV keylayout behavior can still vary.
 * The D-pad supports cardinal and diagonal directions through simultaneous
   touch input, using the wire codes documented in `PROTOCOL.md`.
 * The virtual controller exposes one analog stick. Games that require a
