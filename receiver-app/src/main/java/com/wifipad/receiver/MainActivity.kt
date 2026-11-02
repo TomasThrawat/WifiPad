@@ -148,7 +148,7 @@ class MainActivity : AppCompatActivity() {
         val content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(0, dp(24), 0, dp(32))
-            layoutParams = ScrollView.LayoutParams(width, ScrollView.LayoutParams.WRAP_CONTENT).apply {
+            layoutParams = FrameLayout.LayoutParams(width, FrameLayout.LayoutParams.WRAP_CONTENT).apply {
                 gravity = Gravity.CENTER_HORIZONTAL
             }
         }
