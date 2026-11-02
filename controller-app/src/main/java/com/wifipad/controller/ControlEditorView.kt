@@ -160,7 +160,7 @@ class ControlEditorView(context: Context) : View(context) {
                     val center = getCenter(getSelectedSettings(hit))
                     dragOffsetX = event.getX(index) - center.first
                     dragOffsetY = event.getY(index) - center.second
-                                parent.requestDisallowInterceptTouchEvent(true)
+                    parent.requestDisallowInterceptTouchEvent(true)
                 }
                 return true
             }
