@@ -6,25 +6,18 @@ pluginManagement {
     }
 }
 dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
+    val storageUrl = System.getenv("FLUTTER_STORAGE_BASE_URL") ?: "https://storage.googleapis.com"
     repositories {
         google()
         mavenCentral()
-        val storageUrl = System.getenv("FLUTTER_STORAGE_BASE_URL") ?: "https://storage.googleapis.com"
         maven("$storageUrl/download.flutter.io")
     }
 }
 rootProject.name = "WifiPad"
 
-// Flutter's source-module plugin expects one host project per Gradle build.
-// CI selects either native app directory and maps it to the conventional :app path.
-val selectedHostApp = providers.gradleProperty("wifipad.hostApp")
-    .orElse("controller-app")
-    .get()
-if (selectedHostApp !in setOf("controller-app", "receiver-app")) {
-    throw GradleException("Unsupported WifiPad host app: $selectedHostApp")
-}
+// CircleCI links the selected native host directory to ./app for each Gradle invocation.
 include(":app")
-project(":app").projectDir = file(selectedHostApp)
 
 // Flutter generates this bridge project when pub dependencies are resolved.
 val flutterModuleInclude = File(settingsDir, "flutter_ui/.android/include_flutter.groovy")
@@ -35,4 +28,3 @@ if (!flutterModuleInclude.isFile) {
     )
 }
 apply(from = flutterModuleInclude)
-
