@@ -1,247 +1,220 @@
 package com.wifipad.receiver
 
 import android.content.ComponentName
-import android.content.Context
-import android.content.ServiceConnection
 import android.content.pm.PackageManager
 import android.net.ConnectivityManager
-import java.net.Inet4Address
 import android.os.Bundle
-import android.os.Handler
 import android.os.IBinder
-import android.os.Looper
 import android.os.RemoteException
-import android.view.Gravity
-import android.widget.LinearLayout
-import androidx.appcompat.app.AppCompatActivity
-import com.google.android.material.appbar.MaterialToolbar
-import com.google.android.material.button.MaterialButton
-import com.google.android.material.card.MaterialCardView
-import com.google.android.material.color.DynamicColors
-import com.google.android.material.color.MaterialColors
-import com.google.android.material.textview.MaterialTextView
+import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.MethodChannel
 import rikka.shizuku.Shizuku
-import kotlin.math.roundToInt
+import java.net.Inet4Address
 
-class MainActivity : AppCompatActivity() {
-
-    private var service: IGamepadService? = null
-    private lateinit var statusView: MaterialTextView
-    private val port = Protocol.DEFAULT_PORT
-    private val requestCode = 9001
-    private val mainHandler = Handler(Looper.getMainLooper())
-
-    private val permissionListener = Shizuku.OnRequestPermissionResultListener { code, grant ->
-        if (code == requestCode) {
-            if (grant == PackageManager.PERMISSION_GRANTED) bindService()
-            else statusView.text = getString(R.string.status_shizuku_denied)
-        }
+class MainActivity : FlutterActivity() {
+    companion object {
+        private const val CHANNEL = "com.wifipad/receiver"
+        private const val REQUEST_CODE = 9001
     }
+
+    private val port = Protocol.DEFAULT_PORT
+    private var service: IGamepadService? = null
+    private var pendingStartResult: MethodChannel.Result? = null
 
     private val userServiceArgs = Shizuku.UserServiceArgs(
         ComponentName(BuildConfig.APPLICATION_ID, GamepadUserService::class.java.name)
     ).daemon(false).processNameSuffix("gamepad").debuggable(false).version(1)
 
-    private val connection = object : ServiceConnection {
+    private val permissionListener = Shizuku.OnRequestPermissionResultListener { code, grant ->
+        if (code == REQUEST_CODE) {
+            if (grant == PackageManager.PERMISSION_GRANTED) {
+                bindService()
+            } else {
+                failPendingStart("SHIZUKU_PERMISSION_DENIED", "Shizuku permission was denied.")
+            }
+        }
+    }
+
+    private val connection = object : android.content.ServiceConnection {
         override fun onServiceConnected(name: ComponentName, binder: IBinder) {
             service = IGamepadService.Stub.asInterface(binder)
-            try {
-                service?.start(port)
-            } catch (_: RemoteException) {
-                service = null
-            }
-            refreshStatus()
+            completeStart()
         }
 
         override fun onServiceDisconnected(name: ComponentName) {
             service = null
-            statusView.text = getString(R.string.status_disconnected)
+        }
+
+        override fun onBindingDied(name: ComponentName) {
+            service = null
+            failPendingStart("SERVICE_DIED", "The Shizuku user service stopped unexpectedly.")
+        }
+
+        override fun onNullBinding(name: ComponentName) {
+            service = null
+            failPendingStart("SERVICE_UNAVAILABLE", "The Shizuku user service returned no binder.")
         }
     }
+
+    override fun getInitialRoute(): String = "/receiver"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        DynamicColors.applyToActivityIfAvailable(this)
+        window.statusBarColor = android.graphics.Color.BLACK
+        window.navigationBarColor = android.graphics.Color.BLACK
+    }
 
-        val root = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER_HORIZONTAL
-            setBackgroundColor(android.graphics.Color.BLACK)
-            setPadding(dp(20), dp(12), dp(20), dp(20))
-        }
-
-        val toolbar = MaterialToolbar(this).apply {
-            title = getString(R.string.app_name)
-            elevation = 0f
-        }
-
-        val statusCard = MaterialCardView(this).apply {
-            radius = dp(24).toFloat()
-            cardElevation = 0f
-            strokeWidth = dp(1)
-            strokeColor = MaterialColors.getColor(
-                this,
-                com.google.android.material.R.attr.colorOutlineVariant
-            )
-            setCardBackgroundColor(
-                MaterialColors.getColor(
-                    this,
-                    com.google.android.material.R.attr.colorSurfaceContainer
-                )
-            )
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                0,
-                1f
-            ).apply {
-                topMargin = dp(12)
-                bottomMargin = dp(12)
+    override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
+        super.configureFlutterEngine(flutterEngine)
+        Shizuku.addRequestPermissionResultListener(permissionListener)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "getStatus" -> result.success(statusSnapshot())
+                    "startReceiver" -> startReceiver(result)
+                    "stopReceiver" -> stopReceiver(result)
+                    else -> result.notImplemented()
+                }
             }
-        }
+    }
 
-        statusView = MaterialTextView(this).apply {
-            text = getString(R.string.status_press_start)
-            gravity = Gravity.CENTER
-            setTextAppearance(
-                com.google.android.material.R.style.TextAppearance_Material3_BodyLarge
-            )
-            setPadding(dp(28), dp(28), dp(28), dp(28))
-        }
-        statusCard.addView(statusView)
-
-        val actions = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER
-        }
-
-        val startButton = MaterialButton(this).apply {
-            text = getString(R.string.start)
-            isAllCaps = false
-            cornerRadius = dp(18)
-            minHeight = dp(60)
-            layoutParams = LinearLayout.LayoutParams(0, dp(60), 1f).apply {
-                marginEnd = dp(6)
-            }
-        }
-
-        val stopButton = MaterialButton(this).apply {
-            text = getString(R.string.stop)
-            isAllCaps = false
-            cornerRadius = dp(18)
-            minHeight = dp(60)
-            layoutParams = LinearLayout.LayoutParams(0, dp(60), 1f).apply {
-                marginStart = dp(6)
-            }
-        }
-
-        startButton.setOnClickListener { requestShizuku() }
-        stopButton.setOnClickListener {
+    private fun startReceiver(result: MethodChannel.Result) {
+        val current = service
+        if (current != null) {
             try {
-                service?.stop()
+                if (current.isRunning()) {
+                    result.success(statusSnapshot())
+                    return
+                }
             } catch (_: RemoteException) {
                 service = null
             }
-            refreshStatus()
         }
 
-        actions.addView(startButton)
-        actions.addView(stopButton)
-
-        root.addView(
-            toolbar,
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                dp(64)
-            )
-        )
-        root.addView(statusCard)
-        root.addView(actions)
-        setContentView(root)
-
-        Shizuku.addRequestPermissionResultListener(permissionListener)
-        statusView.text = getString(
-            R.string.status_press_start_with_network,
-            localIp(),
-            port
-        )
-
-        mainHandler.postDelayed(object : Runnable {
-            override fun run() {
-                refreshStatus()
-                mainHandler.postDelayed(this, 1000)
-            }
-        }, 1000)
-    }
-
-    private fun requestShizuku() {
         if (!Shizuku.pingBinder()) {
-            statusView.text = getString(R.string.status_shizuku_not_connected)
+            result.error("SHIZUKU_UNAVAILABLE", "Connect Shizuku on this TV first.", null)
             return
         }
         if (Shizuku.isPreV11()) {
-            statusView.text = getString(R.string.status_shizuku_too_old)
+            result.error("SHIZUKU_TOO_OLD", "The installed Shizuku version is too old.", null)
             return
         }
+
+        pendingStartResult = result
         when {
             Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED -> bindService()
             Shizuku.shouldShowRequestPermissionRationale() ->
-                statusView.text = getString(R.string.status_shizuku_denied_before)
-            else -> Shizuku.requestPermission(requestCode)
+                failPendingStart("SHIZUKU_PERMISSION_DENIED", "Grant WifiPad permission from the Shizuku prompt.")
+            else -> Shizuku.requestPermission(REQUEST_CODE)
         }
     }
 
     private fun bindService() {
-        Shizuku.bindUserService(userServiceArgs, connection)
+        try {
+            Shizuku.bindUserService(userServiceArgs, connection)
+        } catch (error: Exception) {
+            failPendingStart("BIND_FAILED", error.message ?: "Could not bind the Shizuku service.")
+        }
     }
 
-    private fun refreshStatus() {
-        val s = service
-        statusView.text = try {
-            if (s != null && s.isRunning()) {
-                getString(
-                    R.string.status_listening,
-                    localIp(),
-                    port,
-                    s.packetsReceived()
-                )
+    private fun completeStart() {
+        val current = service ?: return
+        val result = pendingStartResult ?: return
+        try {
+            if (current.start(port)) {
+                pendingStartResult = null
+                result.success(statusSnapshot())
             } else {
-                getString(
-                    R.string.status_not_running,
-                    localIp(),
-                    port,
-                    s?.lastError().orEmpty()
-                )
+                val message = current.lastError().ifBlank { "The receiver could not start." }
+                pendingStartResult = null
+                result.error("START_FAILED", message, null)
+            }
+        } catch (error: RemoteException) {
+            pendingStartResult = null
+            result.error("START_FAILED", error.message ?: "The receiver service stopped.", null)
+        }
+    }
+
+    private fun failPendingStart(code: String, message: String) {
+        val result = pendingStartResult ?: return
+        pendingStartResult = null
+        result.error(code, message, null)
+    }
+
+    private fun stopReceiver(result: MethodChannel.Result) {
+        try {
+            service?.stop()
+            result.success(statusSnapshot())
+        } catch (error: RemoteException) {
+            service = null
+            result.error("STOP_FAILED", error.message ?: "Could not stop the receiver.", null)
+        }
+    }
+
+    private fun statusSnapshot(): Map<String, Any> {
+        var running = false
+        var packets = 0L
+        var lastError = ""
+        try {
+            service?.let {
+                running = it.isRunning()
+                packets = it.packetsReceived()
+                lastError = it.lastError()
             }
         } catch (_: RemoteException) {
             service = null
-            getString(R.string.status_service_died, localIp(), port)
+            lastError = "Receiver service disconnected."
         }
+
+        val shizukuConnected = try {
+            Shizuku.pingBinder()
+        } catch (_: Exception) {
+            false
+        }
+        val permissionGranted = try {
+            shizukuConnected && Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED
+        } catch (_: Exception) {
+            false
+        }
+
+        return mapOf(
+            "running" to running,
+            "address" to localIp(),
+            "port" to port,
+            "packetsReceived" to packets,
+            "lastError" to lastError,
+            "shizukuConnected" to shizukuConnected,
+            "permissionGranted" to permissionGranted
+        )
     }
 
     private fun localIp(): String {
         return try {
-            val connectivityManager =
-                getSystemService(ConnectivityManager::class.java)
-            val network = connectivityManager.activeNetwork
-            val ip = network
-                ?.let(connectivityManager::getLinkProperties)
+            val manager = getSystemService(ConnectivityManager::class.java)
+            val network = manager.activeNetwork
+            network?.let(manager::getLinkProperties)
                 ?.linkAddresses
                 ?.asSequence()
                 ?.map { it.address }
                 ?.filterIsInstance<Inet4Address>()
                 ?.firstOrNull { !it.isLoopbackAddress }
-                ?.hostAddress
-            ip ?: "unknown"
+                ?.hostAddress ?: "unknown"
         } catch (_: Exception) {
             "unknown"
         }
     }
 
-    private fun dp(value: Int): Int = (value * resources.displayMetrics.density).roundToInt()
+    override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
+            .setMethodCallHandler(null)
+        super.cleanUpFlutterEngine(flutterEngine)
+    }
 
     override fun onDestroy() {
-        mainHandler.removeCallbacksAndMessages(null)
         Shizuku.removeRequestPermissionResultListener(permissionListener)
+        pendingStartResult?.error("ACTIVITY_CLOSED", "The receiver screen was closed.", null)
+        pendingStartResult = null
         super.onDestroy()
     }
 }

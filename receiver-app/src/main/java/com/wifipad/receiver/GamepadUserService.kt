@@ -222,11 +222,7 @@ class GamepadUserService : IGamepadService.Stub() {
         pad.injectNeutral()
     }
 
-    private fun hatFor(dpad: Int): Pair<Int, Int> = when (dpad) {
-        1 -> 0 to -1; 2 -> 1 to -1; 3 -> 1 to 0; 4 -> 1 to 1
-        5 -> 0 to 1; 6 -> -1 to 1; 7 -> -1 to 0; 8 -> -1 to -1
-        else -> 0 to 0
-    }
+    private fun hatFor(dpad: Int): Pair<Int, Int> = DpadHat.fromWireValue(dpad)
 
     private val buttonKeyMap = listOf(
         ButtonBit.A to UinputGamepad.BTN_A, ButtonBit.B to UinputGamepad.BTN_B,

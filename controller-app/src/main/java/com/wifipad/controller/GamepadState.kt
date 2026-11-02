@@ -1,5 +1,7 @@
 package com.wifipad.controller
 
+import kotlin.math.roundToInt
+
 class GamepadState {
     @Volatile var buttons: Int = 0
     @Volatile var leftX: Byte = 0
@@ -46,5 +48,25 @@ internal object DpadEncoding {
         0x8 -> 7
         0x9 -> 8
         else -> 0
+    }
+}
+
+
+internal data class AnalogStickOutput(val x: Byte, val y: Byte)
+
+internal object AnalogStickMapping {
+    fun map(normalizedX: Float, normalizedY: Float, deadZone: Float, sensitivity: Float): AnalogStickOutput {
+        val x = normalizedX.coerceIn(-1f, 1f)
+        val y = normalizedY.coerceIn(-1f, 1f)
+        val magnitude = kotlin.math.hypot(x.toDouble(), y.toDouble()).toFloat().coerceIn(0f, 1f)
+        val zone = deadZone.coerceIn(0f, 0.35f)
+        val gain = sensitivity.coerceIn(0.5f, 1.5f)
+        val outputMagnitude = if (magnitude <= zone) 0f else
+            ((magnitude - zone) / (1f - zone) * gain).coerceIn(0f, 1f)
+        val scale = if (magnitude <= 0f) 0f else outputMagnitude / magnitude
+        return AnalogStickOutput(
+            (x * scale * 127f).roundToInt().coerceIn(-127, 127).toByte(),
+            (y * scale * 127f).roundToInt().coerceIn(-127, 127).toByte()
+        )
     }
 }

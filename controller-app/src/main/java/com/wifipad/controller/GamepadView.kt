@@ -306,7 +306,7 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         ) {
             stickPointer = id
             performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-            updateStick(x, y, stickBase) { dx, dy ->
+            updateStick(x, y, stickBase, stickKnob, settings.getValue(ControlGroup.STICK)) { dx, dy ->
                 state.leftX = dx
                 state.leftY = dy
             }
@@ -319,7 +319,7 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         ) {
             rightStickPointer = id
             performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-            updateStick(x, y, rightStickBase) { dx, dy ->
+            updateStick(x, y, rightStickBase, rightStickKnob, settings.getValue(ControlGroup.RIGHT_STICK)) { dx, dy ->
                 state.rightX = dx
                 state.rightY = dy
             }
@@ -338,11 +338,11 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         val y = event.getY(index)
 
         when (id) {
-            stickPointer -> updateStick(x, y, stickBase) { dx, dy ->
+            stickPointer -> updateStick(x, y, stickBase, stickKnob, settings.getValue(ControlGroup.STICK)) { dx, dy ->
                 state.leftX = dx
                 state.leftY = dy
             }
-            rightStickPointer -> updateStick(x, y, rightStickBase) { dx, dy ->
+            rightStickPointer -> updateStick(x, y, rightStickBase, rightStickKnob, settings.getValue(ControlGroup.RIGHT_STICK)) { dx, dy ->
                 state.rightX = dx
                 state.rightY = dy
             }
@@ -378,7 +378,10 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
             r.bit == ButtonBit.L1 || r.bit == ButtonBit.R1 ->
                 state.setButton(r.bit, pressed)
             dpadButtons.contains(r) -> syncDpadState()
-            else -> state.setButton(r.bit, pressed)
+            else -> state.setButton(
+                r.bit,
+                pressed || activePointerToRect.values.any { it.bit == r.bit }
+            )
         }
     }
 
@@ -418,6 +421,8 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         x: Float,
         y: Float,
         base: Circle,
+        knob: PointF,
+        inputSettings: ControlSettings,
         apply: (Byte, Byte) -> Unit
     ) {
         var dx = x - base.cx
@@ -430,12 +435,15 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
             dy *= scale
         }
 
-        val nx = (dx / base.r * 127f).roundToInt().coerceIn(-127, 127)
-        val ny = (dy / base.r * 127f).roundToInt().coerceIn(-127, 127)
-
-        stickKnob.x = base.cx + dx
-        stickKnob.y = base.cy + dy
-        apply(nx.toByte(), ny.toByte())
+        val output = AnalogStickMapping.map(
+            normalizedX = dx / base.r,
+            normalizedY = dy / base.r,
+            deadZone = inputSettings.deadZone,
+            sensitivity = inputSettings.sensitivity
+        )
+        knob.x = base.cx + dx
+        knob.y = base.cy + dy
+        apply(output.x, output.y)
     }
 
     private fun resetInputState() {

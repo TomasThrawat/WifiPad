@@ -82,4 +82,25 @@ class GamepadStateTest {
         assertEquals(8, DpadEncoding.fromCardinalMask(9))
     }
 
+    @Test
+    fun analogStickDeadZoneSuppressesSmallMovements() {
+        val output = AnalogStickMapping.map(0.06f, 0.04f, 0.12f, 1f)
+        assertEquals(0, output.x.toInt())
+        assertEquals(0, output.y.toInt())
+    }
+
+    @Test
+    fun analogStickReachesFullRangeOutsideDeadZone() {
+        val output = AnalogStickMapping.map(1f, 0f, 0.12f, 1f)
+        assertEquals(127, output.x.toInt())
+        assertEquals(0, output.y.toInt())
+    }
+
+    @Test
+    fun analogStickSensitivityScalesMidRangeMovement() {
+        val normal = AnalogStickMapping.map(0.56f, 0f, 0.12f, 1f)
+        val reduced = AnalogStickMapping.map(0.56f, 0f, 0.12f, 0.5f)
+        assertEquals(normal.x.toInt() / 2, reduced.x.toInt())
+    }
+
 }

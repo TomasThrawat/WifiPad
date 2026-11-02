@@ -93,6 +93,20 @@ class ControlEditorView(context: Context) : View(context) {
         invalidate()
     }
 
+    fun setSelectedDeadZone(value: Float) {
+        values[selectedGroup] = getSelectedSettings(selectedGroup).copy(
+            deadZone = value.coerceIn(0f, 0.35f)
+        )
+        invalidate()
+    }
+
+    fun setSelectedSensitivity(value: Float) {
+        values[selectedGroup] = getSelectedSettings(selectedGroup).copy(
+            sensitivity = value.coerceIn(0.5f, 1.5f)
+        )
+        invalidate()
+    }
+
     fun resetToDefaults() {
         values.clear()
         ControlGroup.values().forEach { group ->

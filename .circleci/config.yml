@@ -11,6 +11,32 @@ jobs:
       - checkout
 
       - run:
+          name: Install Flutter stable and bootstrap the module
+          command: |
+            if [ ! -x "$HOME/flutter/bin/flutter" ]; then
+              git clone --depth 1 --branch stable https://github.com/flutter/flutter.git "$HOME/flutter"
+            fi
+            echo 'export FLUTTER_ROOT=$HOME/flutter' >> "$BASH_ENV"
+            echo 'export PATH=$HOME/flutter/bin:$PATH' >> "$BASH_ENV"
+            "$HOME/flutter/bin/flutter" config --no-analytics
+            "$HOME/flutter/bin/flutter" --version
+            cd flutter_ui
+            backup_dir="$HOME/wifipad-flutter-source-backup"
+            rm -rf "$backup_dir"
+            mkdir -p "$backup_dir"
+            cp pubspec.yaml "$backup_dir/pubspec.yaml"
+            cp -R lib "$backup_dir/lib"
+            cp -R test "$backup_dir/test"
+            flutter create --template=module --project-name=wifipad_ui --org=dev.wifipad --overwrite --no-pub .
+            cp "$backup_dir/pubspec.yaml" pubspec.yaml
+            rm -rf lib test
+            cp -R "$backup_dir/lib" lib
+            cp -R "$backup_dir/test" test
+            flutter pub get
+            flutter analyze --no-pub
+            flutter test --no-pub
+
+      - run:
           name: Select JDK 17
           command: |
             test -d /usr/lib/jvm/java-17-openjdk-amd64
@@ -20,8 +46,8 @@ jobs:
 
       - restore_cache:
           keys:
-            - wifipad-gradle-v1-{{ checksum "build.gradle.kts" }}-{{ checksum "settings.gradle.kts" }}
-            - wifipad-gradle-v1-
+            - wifipad-gradle-flutter-v2-{{ checksum "build.gradle.kts" }}-{{ checksum "settings.gradle.kts" }}
+            - wifipad-gradle-flutter-v2-
 
       - run:
           name: Install pinned Gradle 8.14.6
@@ -50,13 +76,17 @@ jobs:
             gradle --no-daemon --stacktrace --warning-mode all               :controller-app:testDebugUnitTest               :receiver-app:testDebugUnitTest               :controller-app:lintDebug               :receiver-app:lintDebug               :controller-app:assembleDebug               :receiver-app:assembleDebug
 
       - save_cache:
-          key: wifipad-gradle-v1-{{ checksum "build.gradle.kts" }}-{{ checksum "settings.gradle.kts" }}
+          key: wifipad-gradle-flutter-v2-{{ checksum "build.gradle.kts" }}-{{ checksum "settings.gradle.kts" }}
           paths:
             - ~/.gradle/caches
             - ~/.gradle/wrapper
+            - ~/.pub-cache
 
       - store_test_results:
           path: controller-app/build/test-results
+
+      - store_test_results:
+          path: receiver-app/build/test-results
 
       - store_artifacts:
           path: controller-app/build/outputs/apk/debug

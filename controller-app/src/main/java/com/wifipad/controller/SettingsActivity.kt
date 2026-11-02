@@ -25,6 +25,10 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var showCheckBox: MaterialCheckBox
     private lateinit var sizeSlider: Slider
     private lateinit var sizeValue: MaterialTextView
+    private lateinit var deadZoneSlider: Slider
+    private lateinit var deadZoneValue: MaterialTextView
+    private lateinit var sensitivitySlider: Slider
+    private lateinit var sensitivityValue: MaterialTextView
     private var selectedGroup: ControlGroup = ControlGroup.STICK
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -336,6 +340,56 @@ class SettingsActivity : AppCompatActivity() {
             )
         )
 
+        val deadZoneHeader = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
+        val deadZoneTitle = MaterialTextView(this).apply {
+            text = getString(R.string.settings_dead_zone)
+            setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_BodyLarge)
+        }
+        deadZoneValue = MaterialTextView(this).apply {
+            setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_LabelLarge)
+        }
+        deadZoneHeader.addView(deadZoneTitle, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        deadZoneHeader.addView(deadZoneValue)
+        editor.addView(deadZoneHeader, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(14) })
+
+        deadZoneSlider = Slider(this).apply {
+            valueFrom = 0f
+            valueTo = 35f
+            stepSize = 1f
+            addOnChangeListener { _, value, fromUser ->
+                if (fromUser && ::preview.isInitialized && isStickGroup(selectedGroup)) {
+                    preview.setSelectedDeadZone(value / 100f)
+                    updateEditorLabels()
+                }
+            }
+        }
+        editor.addView(deadZoneSlider, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(44)))
+
+        val sensitivityHeader = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
+        val sensitivityTitle = MaterialTextView(this).apply {
+            text = getString(R.string.settings_sensitivity)
+            setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_BodyLarge)
+        }
+        sensitivityValue = MaterialTextView(this).apply {
+            setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_LabelLarge)
+        }
+        sensitivityHeader.addView(sensitivityTitle, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        sensitivityHeader.addView(sensitivityValue)
+        editor.addView(sensitivityHeader, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(8) })
+
+        sensitivitySlider = Slider(this).apply {
+            valueFrom = 50f
+            valueTo = 150f
+            stepSize = 5f
+            addOnChangeListener { _, value, fromUser ->
+                if (fromUser && ::preview.isInitialized && isStickGroup(selectedGroup)) {
+                    preview.setSelectedSensitivity(value / 100f)
+                    updateEditorLabels()
+                }
+            }
+        }
+        editor.addView(sensitivitySlider, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(44)))
+
         editorCard.addView(editor)
         editorCard.layoutParams = LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
@@ -370,6 +424,10 @@ class SettingsActivity : AppCompatActivity() {
         }
 
         sizeSlider.value = current.scale * 100f
+        deadZoneSlider.value = current.deadZone * 100f
+        sensitivitySlider.value = current.sensitivity * 100f
+        deadZoneSlider.isEnabled = isStickGroup(group)
+        sensitivitySlider.isEnabled = isStickGroup(group)
 
         updateEditorLabels()
     }
@@ -381,12 +439,17 @@ class SettingsActivity : AppCompatActivity() {
         val yPercent = (current.y * 100f).roundToInt()
 
         sizeValue.text = getString(R.string.settings_size_value, scalePercent)
+        deadZoneValue.text = (current.deadZone * 100f).roundToInt().toString() + "%"
+        sensitivityValue.text = (current.sensitivity * 100f).roundToInt().toString() + "%"
         positionLabel.text = getString(
             R.string.settings_position_value,
             xPercent,
             yPercent
         )
     }
+
+    private fun isStickGroup(group: ControlGroup): Boolean =
+        group == ControlGroup.STICK || group == ControlGroup.RIGHT_STICK
 
     private fun groupLabel(group: ControlGroup): String = when (group) {
         ControlGroup.STICK -> getString(R.string.control_stick)
