@@ -11,52 +11,6 @@ jobs:
       - checkout
 
       - run:
-          name: Install Flutter stable and bootstrap the module
-          command: |
-            set -euxo pipefail
-            repo_root="$PWD"
-            : > "$repo_root/flutter-bootstrap.log"
-            : > "$repo_root/gradle-build.log"
-            exec > >(tee -a "$repo_root/flutter-bootstrap.log") 2>&1
-
-            if [ ! -x "$HOME/flutter/bin/flutter" ]; then
-              git clone --depth 1 --branch stable https://github.com/flutter/flutter.git "$HOME/flutter"
-            fi
-
-            export FLUTTER_ROOT="$HOME/flutter"
-            export PATH="$FLUTTER_ROOT/bin:$PATH"
-            echo 'export FLUTTER_ROOT=$HOME/flutter' >> "$BASH_ENV"
-            echo 'export PATH=$HOME/flutter/bin:$PATH' >> "$BASH_ENV"
-            command -v flutter
-            flutter config --no-analytics
-            flutter --version
-
-            cd "$repo_root/flutter_ui"
-            backup_dir="$HOME/wifipad-flutter-source-backup"
-            rm -rf "$backup_dir"
-            mkdir -p "$backup_dir"
-            cp pubspec.yaml "$backup_dir/pubspec.yaml"
-            cp -R lib "$backup_dir/lib"
-            cp -R test "$backup_dir/test"
-            flutter create --template=module --project-name=wifipad_ui --org=dev.wifipad --overwrite --no-pub .
-            cp "$backup_dir/pubspec.yaml" pubspec.yaml
-            rm -rf lib test
-            cp -R "$backup_dir/lib" lib
-            cp -R "$backup_dir/test" test
-            flutter pub get
-            test -f "$repo_root/flutter_ui/.android/include_flutter.groovy"
-            grep -q '^flutter.hostAppProjectName=app$' .android/gradle.properties || \
-              echo 'flutter.hostAppProjectName=app' >> .android/gradle.properties
-            ls -la "$repo_root/flutter_ui/.android"
-            sed -i 's#^org.gradle.jvmargs=.*#org.gradle.jvmargs=-Xmx1280m -XX:MaxMetaspaceSize=640m -XX:ReservedCodeCacheSize=128m -XX:+HeapDumpOnOutOfMemoryError#' .android/gradle.properties
-            grep -q '^org.gradle.parallel=false$' .android/gradle.properties || echo 'org.gradle.parallel=false' >> .android/gradle.properties
-            grep -q '^org.gradle.workers.max=1$' .android/gradle.properties || echo 'org.gradle.workers.max=1' >> .android/gradle.properties
-            grep -q '^kotlin.compiler.execution.strategy=in-process$' .android/gradle.properties || echo 'kotlin.compiler.execution.strategy=in-process' >> .android/gradle.properties
-            cat .android/gradle.properties
-            flutter analyze --no-pub
-            flutter test --no-pub
-
-      - run:
           name: Select JDK 17
           command: |
             test -d /usr/lib/jvm/java-17-openjdk-amd64
@@ -66,14 +20,14 @@ jobs:
 
       - restore_cache:
           keys:
-            - wifipad-gradle-flutter-v2-{{ checksum "build.gradle.kts" }}-{{ checksum "settings.gradle.kts" }}
-            - wifipad-gradle-flutter-v2-
+            - wifipad-gradle-native-v1-{{ checksum "build.gradle.kts" }}-{{ checksum "settings.gradle.kts" }}
+            - wifipad-gradle-native-v1-
 
       - run:
           name: Install pinned Gradle 8.14.6
           command: |
             if [ ! -x "$HOME/gradle-8.14.6/bin/gradle" ]; then
-              curl --fail --location --retry 3                 https://services.gradle.org/distributions/gradle-8.14.6-bin.zip                 --output /tmp/gradle-8.14.6-bin.zip
+              curl --fail --location --retry 3 https://services.gradle.org/distributions/gradle-8.14.6-bin.zip --output /tmp/gradle-8.14.6-bin.zip
               unzip -q /tmp/gradle-8.14.6-bin.zip -d "$HOME"
             fi
             echo 'export PATH=$HOME/gradle-8.14.6/bin:$PATH' >> "$BASH_ENV"
@@ -87,8 +41,8 @@ jobs:
             yes | sdkmanager --licenses >/dev/null
             set -o pipefail
             sdkmanager "platforms;android-35" "build-tools;35.0.0" "ndk;28.2.13676358"
-            test -d "$ANDROID_HOME/platforms/android-35" ||               test -d "$ANDROID_SDK_ROOT/platforms/android-35"
-            test -d "$ANDROID_HOME/build-tools/35.0.0" ||               test -d "$ANDROID_SDK_ROOT/build-tools/35.0.0"
+            test -d "$ANDROID_HOME/platforms/android-35" || test -d "$ANDROID_SDK_ROOT/platforms/android-35"
+            test -d "$ANDROID_HOME/build-tools/35.0.0" || test -d "$ANDROID_SDK_ROOT/build-tools/35.0.0"
 
       - run:
           name: Build phone controller APK
@@ -126,12 +80,31 @@ jobs:
             echo "=== Receiver APK assembly ==="
             gradle --no-daemon --max-workers=1 --stacktrace --warning-mode all :app:assembleDebug 2>&1 | tee -a "$PWD/gradle-build.log"
 
+      - run:
+          name: Verify APKs contain no Flutter runtime
+          command: |
+            set -euo pipefail
+            : > apk-audit.txt
+            for apk in controller-app/build/outputs/apk/debug/app-debug.apk receiver-app/build/outputs/apk/debug/app-debug.apk; do
+              test -s "$apk"
+              unzip -t "$apk"
+              if unzip -l "$apk" | grep -Ei 'libflutter\.so|libapp\.so|flutter_assets|kernel_blob\.bin|isolate_snapshot_data'; then
+                echo "Flutter runtime payload detected in $apk" | tee -a apk-audit.txt
+                exit 1
+              fi
+              echo "APK: $apk" | tee -a apk-audit.txt
+              ls -lh "$apk" | tee -a apk-audit.txt
+              sha256sum "$apk" | tee -a apk-audit.txt
+              echo "Native libraries:" | tee -a apk-audit.txt
+              unzip -l "$apk" | grep 'lib/arm64-v8a/.*\.so' | tee -a apk-audit.txt || true
+              echo | tee -a apk-audit.txt
+            done
+
       - save_cache:
-          key: wifipad-gradle-flutter-v2-{{ checksum "build.gradle.kts" }}-{{ checksum "settings.gradle.kts" }}
+          key: wifipad-gradle-native-v1-{{ checksum "build.gradle.kts" }}-{{ checksum "settings.gradle.kts" }}
           paths:
             - ~/.gradle/caches
             - ~/.gradle/wrapper
-            - ~/.pub-cache
 
       - store_test_results:
           path: controller-app/build/test-results
@@ -140,12 +113,12 @@ jobs:
           path: receiver-app/build/test-results
 
       - store_artifacts:
-          path: flutter-bootstrap.log
-          destination: diagnostics/flutter-bootstrap.log
-
-      - store_artifacts:
           path: gradle-build.log
           destination: diagnostics/gradle-build.log
+
+      - store_artifacts:
+          path: apk-audit.txt
+          destination: diagnostics/apk-audit.txt
 
       - store_artifacts:
           path: controller-app/build/reports/lint-results-debug.html
@@ -164,16 +137,12 @@ jobs:
           destination: diagnostics/receiver-lint-results.xml
 
       - store_artifacts:
-          path: flutter_ui/pubspec.lock
-          destination: diagnostics/pubspec.lock
-
-      - store_artifacts:
           path: controller-app/build/outputs/apk/debug
-          destination: controller-app-debug-apk
+          destination: controller-app-native-debug-apk
 
       - store_artifacts:
           path: receiver-app/build/outputs/apk/debug
-          destination: receiver-app-debug-apk
+          destination: receiver-app-native-debug-apk
 
 workflows:
   build-and-test:
