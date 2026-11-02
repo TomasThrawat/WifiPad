@@ -9,6 +9,7 @@ android {
     namespace = "com.wifipad.controller"
 
     compileSdk = 35
+    ndkVersion = "28.2.13676358"
 
     defaultConfig {
         applicationId = "com.wifipad.controller"
