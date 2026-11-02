@@ -45,7 +45,10 @@ jobs:
             cp -R "$backup_dir/test" test
             flutter pub get
             test -f "$repo_root/flutter_ui/.android/include_flutter.groovy"
+            grep -q '^flutter.hostAppProjectName=app$' .android/gradle.properties || \
+              echo 'flutter.hostAppProjectName=app' >> .android/gradle.properties
             ls -la "$repo_root/flutter_ui/.android"
+            cat .android/gradle.properties
             flutter analyze --no-pub
             flutter test --no-pub
 
@@ -84,16 +87,24 @@ jobs:
             test -d "$ANDROID_HOME/build-tools/35.0.0" ||               test -d "$ANDROID_SDK_ROOT/build-tools/35.0.0"
 
       - run:
-          name: Run unit tests, lint, and build both APKs
+          name: Build phone controller APK
           command: |
             set -euxo pipefail
             gradle --no-daemon --stacktrace --warning-mode all \
-              :controller-app:testDebugUnitTest \
-              :receiver-app:testDebugUnitTest \
-              :controller-app:lintDebug \
-              :receiver-app:lintDebug \
-              :controller-app:assembleDebug \
-              :receiver-app:assembleDebug 2>&1 | tee "$PWD/gradle-build.log"
+              -Pwifipad.hostApp=controller-app \
+              :app:testDebugUnitTest \
+              :app:lintDebug \
+              :app:assembleDebug 2>&1 | tee "$PWD/gradle-build.log"
+
+      - run:
+          name: Build TV receiver APK
+          command: |
+            set -euxo pipefail
+            gradle --no-daemon --stacktrace --warning-mode all \
+              -Pwifipad.hostApp=receiver-app \
+              :app:testDebugUnitTest \
+              :app:lintDebug \
+              :app:assembleDebug 2>&1 | tee -a "$PWD/gradle-build.log"
 
       - save_cache:
           key: wifipad-gradle-flutter-v2-{{ checksum "build.gradle.kts" }}-{{ checksum "settings.gradle.kts" }}

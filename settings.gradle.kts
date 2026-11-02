@@ -14,8 +14,17 @@ dependencyResolutionManagement {
     }
 }
 rootProject.name = "WifiPad"
-include(":controller-app")
-include(":receiver-app")
+
+// Flutter's source-module plugin expects one host project per Gradle build.
+// CI selects either native app directory and maps it to the conventional :app path.
+val selectedHostApp = providers.gradleProperty("wifipad.hostApp")
+    .orElse("controller-app")
+    .get()
+if (selectedHostApp !in setOf("controller-app", "receiver-app")) {
+    throw GradleException("Unsupported WifiPad host app: $selectedHostApp")
+}
+include(":app")
+project(":app").projectDir = file(selectedHostApp)
 
 // Flutter generates this bridge project when pub dependencies are resolved.
 val flutterModuleInclude = File(settingsDir, "flutter_ui/.android/include_flutter.groovy")
@@ -26,3 +35,4 @@ if (!flutterModuleInclude.isFile) {
     )
 }
 apply(from = flutterModuleInclude)
+
