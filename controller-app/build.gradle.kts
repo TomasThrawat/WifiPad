@@ -7,7 +7,6 @@ plugins {
 
 android {
     namespace = "com.wifipad.controller"
-
     compileSdk = 35
     ndkVersion = "28.2.13676358"
 
@@ -45,5 +44,4 @@ dependencies {
     implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("com.google.android.material:material:1.13.0")
     testImplementation("junit:junit:4.13.2")
-    implementation(project(":flutter"))
 }
