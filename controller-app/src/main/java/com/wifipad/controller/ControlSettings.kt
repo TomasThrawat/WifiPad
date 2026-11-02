@@ -1,6 +1,7 @@
 package com.wifipad.controller
 
 import android.content.Context
+import androidx.core.content.edit
 
 enum class ControlGroup(
     val key: String,
@@ -49,17 +50,17 @@ object ControlSettingsStore {
     }
 
     fun save(context: Context, group: ControlGroup, settings: ControlSettings) {
-        prefs(context).edit()
-            .putBoolean(group.key + "_visible", group != ControlGroup.RIGHT_STICK && settings.visible)
-            .putFloat(group.key + "_scale", settings.scale.coerceIn(MIN_SCALE, MAX_SCALE))
-            .putFloat(group.key + "_x", settings.x.coerceIn(0.05f, 0.95f))
-            .putFloat(group.key + "_y", settings.y.coerceIn(0.08f, 0.92f))
-            .putFloat(group.key + "_dead_zone", settings.deadZone.coerceIn(0f, 0.35f))
-            .putFloat(group.key + "_sensitivity", settings.sensitivity.coerceIn(0.5f, 1.5f))
-            .apply()
+        prefs(context).edit {
+            putBoolean(group.key + "_visible", group != ControlGroup.RIGHT_STICK && settings.visible)
+            putFloat(group.key + "_scale", settings.scale.coerceIn(MIN_SCALE, MAX_SCALE))
+            putFloat(group.key + "_x", settings.x.coerceIn(0.05f, 0.95f))
+            putFloat(group.key + "_y", settings.y.coerceIn(0.08f, 0.92f))
+            putFloat(group.key + "_dead_zone", settings.deadZone.coerceIn(0f, 0.35f))
+            putFloat(group.key + "_sensitivity", settings.sensitivity.coerceIn(0.5f, 1.5f))
+        }
     }
 
     fun reset(context: Context) {
-        prefs(context).edit().clear().apply()
+        prefs(context).edit { clear() }
     }
 }

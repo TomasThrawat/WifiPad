@@ -13,6 +13,7 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.edit
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.card.MaterialCardView
 import com.google.android.material.textfield.TextInputEditText
@@ -39,8 +40,6 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        window.statusBarColor = BLACK
-        window.navigationBarColor = BLACK
         setContentView(createScreen())
         hostInput.setText(getSharedPreferences(PREFS, MODE_PRIVATE).getString(PREF_HOST, "").orEmpty())
     }
@@ -144,16 +143,16 @@ class MainActivity : AppCompatActivity() {
     private fun connect() {
         val host = hostInput.text?.toString()?.trim().orEmpty()
         if (host.isBlank()) {
-            messageView.text = "Enter the TV IP address or host name."
+            messageView.text = getString(R.string.connection_error_empty_host)
             messageView.visibility = android.view.View.VISIBLE
             return
         }
-        getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(PREF_HOST, host).apply()
+        getSharedPreferences(PREFS, MODE_PRIVATE).edit { putString(PREF_HOST, host) }
         connectButton.isEnabled = false
-        connectButton.text = "Opening controller…"
+        connectButton.text = getString(R.string.connection_opening_controller)
         startActivity(Intent(this, GamepadActivity::class.java).putExtra(GamepadActivity.EXTRA_HOST, host))
         connectButton.isEnabled = true
-        connectButton.text = "→   Open controller"
+        connectButton.text = getString(R.string.connection_open_controller)
     }
 
     private fun createBrandHeader(eyebrow: String, subtitle: String, symbol: String): LinearLayout {

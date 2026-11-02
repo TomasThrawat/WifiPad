@@ -73,6 +73,7 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
     private class PointF(var x: Float, var y: Float)
 
     init {
+        isClickable = true
         loadSettings()
     }
 
@@ -331,7 +332,15 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
             state.leftY = 0
         }
 
-        activePointerToRect.remove(id)?.let { applyRect(it, false) }
+        activePointerToRect.remove(id)?.let { rect ->
+            applyRect(rect, false)
+            if (rect.bit >= 0) performClick()
+        }
+    }
+
+    override fun performClick(): Boolean {
+        super.performClick()
+        return true
     }
 
     private fun applyRect(r: Rect2, pressed: Boolean, touchY: Float = Float.NaN) {

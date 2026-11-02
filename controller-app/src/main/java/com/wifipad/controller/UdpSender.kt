@@ -1,5 +1,7 @@
 package com.wifipad.controller
 
+import android.annotation.SuppressLint
+
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetAddress
@@ -19,6 +21,8 @@ class UdpSender(private val state: GamepadState, private val hz: Int = 60) {
     private var datagram: DatagramPacket? = null
     @Volatile var onError: ((String) -> Unit)? = null
 
+    // Fixed-rate scheduling intentionally preserves the configured controller packet cadence.
+    @SuppressLint("DiscouragedApi")
     fun start(host: String, port: Int) {
         stop()
         if (host.isBlank()) {

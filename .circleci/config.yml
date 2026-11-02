@@ -34,15 +34,17 @@ jobs:
             "$HOME/gradle-8.14.6/bin/gradle" --version
 
       - run:
-          name: Verify Android SDK 35
+          name: Verify Android SDK 36
           command: |
             command -v sdkmanager
             set +o pipefail
             yes | sdkmanager --licenses >/dev/null
             set -o pipefail
-            sdkmanager "platforms;android-35" "build-tools;35.0.0" "ndk;28.2.13676358"
-            test -d "$ANDROID_HOME/platforms/android-35" || test -d "$ANDROID_SDK_ROOT/platforms/android-35"
+            sdkmanager "platforms;android-36" "build-tools;35.0.0" "ndk;28.2.13676358"
+            test -d "$ANDROID_HOME/platforms/android-36" || test -d "$ANDROID_SDK_ROOT/platforms/android-36"
             test -d "$ANDROID_HOME/build-tools/35.0.0" || test -d "$ANDROID_SDK_ROOT/build-tools/35.0.0"
+            grep -Fq 'compileSdk = 36' controller-app/build.gradle.kts
+            grep -Fq 'compileSdk = 36' receiver-app/build.gradle.kts
 
       - run:
           name: Build phone controller APK

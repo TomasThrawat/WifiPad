@@ -56,6 +56,7 @@ class ControlEditorView(context: Context) : View(context) {
     }
 
     init {
+        isClickable = true
         loadSavedSettings()
     }
 
@@ -183,17 +184,23 @@ class ControlEditorView(context: Context) : View(context) {
                 if (event.getPointerId(event.actionIndex) == activePointerId) {
                     activePointerId = -1
                     parent.requestDisallowInterceptTouchEvent(false)
-                            }
+                    performClick()
+                }
                 return true
             }
 
             MotionEvent.ACTION_CANCEL -> {
                 activePointerId = -1
                 parent.requestDisallowInterceptTouchEvent(false)
-                        return true
+                return true
             }
         }
 
+        return true
+    }
+
+    override fun performClick(): Boolean {
+        super.performClick()
         return true
     }
 
