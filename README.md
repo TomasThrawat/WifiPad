@@ -31,17 +31,17 @@ No PC, no USB cable is needed at play time — wireless debugging is only used
 
 ## Build
 
-CircleCI builds both debug APKs on pushes to main and pull requests using
-the .circleci/config.yml workflow. It bootstraps the Flutter module, runs
-flutter analyze and flutter test, then runs the controller and receiver
-Kotlin unit tests and Android Lint before assembling each debug APK.
+CircleCI builds both Android debug APKs on pushes to main and pull requests.
+The workflow runs Kotlin unit tests and Android Lint, then assembles both APKs.
+The phone and TV interfaces are native Android Material 3 screens. The project
+does not use the Flutter SDK, Flutter engine, Dart runtime, or a Flutter module.
 
 The repository does not include a Gradle wrapper. CI installs Java 17,
 Gradle 8.14.6, Android SDK 35, and NDK 28.2.13676358. It links one native app
 module at a time to the temporary Gradle project :app; therefore the old
 ./gradlew :controller-app:assembleDebug :receiver-app:assembleDebug command
-is not valid for this repository. For local builds, follow the Flutter
-bootstrap and two app-build stages in .circleci/config.yml.
+is not valid for this repository. For local builds, follow the two app-build
+stages in .circleci/config.yml.
 
 ## One-time setup on the TV
 
