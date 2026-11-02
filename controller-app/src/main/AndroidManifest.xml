@@ -8,9 +8,10 @@
     <!-- Phone connection/settings stay portrait; the touch controller is intentionally landscape. -->
     <application
         android:allowBackup="false"
-        tools:ignore="DataExtractionRules"
+        tools:ignore="DataExtractionRules,IconLauncherShape"
         android:label="@string/app_name"
         android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher"
         android:theme="@style/Theme.WifiPad.Controller"
         android:supportsRtl="true">
         <activity

@@ -119,8 +119,11 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    @Suppress("DEPRECATION")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        window.statusBarColor = BLACK
+        window.navigationBarColor = BLACK
         Shizuku.addRequestPermissionResultListener(permissionListener)
         setContentView(createScreen())
         refreshStatus()

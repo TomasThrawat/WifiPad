@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<lint>
+    <issue id="GradleDependency">
+        <!-- Core 1.18 targets API 36.1; Core 1.19 requires API 37 and AGP 9.1. This project stays on AGP 8.13.2/API 36. -->
+        <ignore path="controller-app/build.gradle.kts" />
+        <ignore path="receiver-app/build.gradle.kts" />
+    </issue>
+</lint>

@@ -37,8 +37,11 @@ class MainActivity : AppCompatActivity() {
     private lateinit var connectButton: MaterialButton
     private lateinit var messageView: MaterialTextView
 
+    @Suppress("DEPRECATION")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        window.statusBarColor = BLACK
+        window.navigationBarColor = BLACK
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         setContentView(createScreen())
         hostInput.setText(getSharedPreferences(PREFS, MODE_PRIVATE).getString(PREF_HOST, "").orEmpty())
