@@ -5,15 +5,13 @@ for TVs that only support wireless debugging (ADB over WiFi) + Shizuku.
 
 Two apps, one Gradle project:
 
-* **controller-app** — installs on your phone (OPPO A73 4G). Draws two analog
-  sticks, D-pad, face buttons, L1/R1, L2/R2, Share/PS/Options. Sends an 11-byte
-  UDP packet ~60 times/second to the TV. See `PROTOCOL.md`.
+* **controller-app** — installs on your phone. It keeps the existing touch layout
+  with one analog stick, D-pad, face buttons, L1/R1, L2/R2, and Start. It sends
+  an 11-byte UDP state packet about 60 times/second. See `PROTOCOL.md`.
 * **receiver-app** — installs on the TV. Uses Shizuku (shell privilege, no root)
-  to run AOSP's built-in `uinput` command and register a real virtual gamepad
-  device that the whole system — including games — sees exactly like a wired
-  Xbox 360 controller, because it registers with that controller's actual
-  vendor/product ID (0x045e / 0x028e) and every stock Android build already
-  ships the matching keylayout file for it.
+  to run AOSP's `uinput` command and register a virtual gamepad input device.
+  Android keylayout selection and game-level controller support vary by TV
+  firmware and game; registering a device does not guarantee universal support.
 
 ## How the pieces fit
 
@@ -68,18 +66,17 @@ Open **controller-app**, type the TV's IP shown in receiver-app, tap
 
 ## Verifying it worked
 
-On the TV, any app that reads gamepad input (a "gamepad tester" app, or
-Settings → Remote & accessories on some Android TV builds) should list a
-device named "Xbox 360 Controller" the moment receiver-app is started — even
-before you touch the phone's sticks, since the virtual device is registered
-immediately.
+On the TV, a gamepad tester or Settings → Remote & accessories on some
+Android TV builds may show the virtual device after receiver-app starts.
+Recognition and game compatibility depend on the TV firmware and the game.
 
 ## Notes / limitations
 
-* L2/R2 on the phone UI are simple press buttons (0 or 255), not a smooth
-  drag-to-analog gesture — straightforward to extend in `GamepadView.kt`
-  if a game needs a graduated trigger pull.
-* The D-pad supports all four cardinal directions and four diagonals
-  (8-way input), using the wire codes documented in `PROTOCOL.md`.
-* UDP is unencrypted and unauthenticated — fine on a private home network,
-  not something to expose past your router.
+* L2/R2 use the existing touch regions to produce analog values. The receiver
+  exposes them as standard Android trigger axes and also emits digital trigger
+  key transitions at the 50% point. TV keylayout behavior can vary.
+* The D-pad supports cardinal and diagonal directions through simultaneous
+  touch input, using the wire codes documented in `PROTOCOL.md`.
+* The virtual controller exposes one analog stick. Games that require a
+  separate right stick for camera control cannot receive that second axis.
+* UDP remains unencrypted and unauthenticated; use only on a trusted local network.

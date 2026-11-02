@@ -145,7 +145,9 @@ class ControlEditorView(context: Context) : View(context) {
         selectionPaint.color = selectionColor
 
         ControlGroup.values().forEach { group ->
-            drawGroup(canvas, group, getSelectedSettings(group), size)
+            if (group != ControlGroup.RIGHT_STICK) {
+                drawGroup(canvas, group, getSelectedSettings(group), size)
+            }
         }
     }
 
@@ -227,6 +229,7 @@ class ControlEditorView(context: Context) : View(context) {
 
         ControlGroup.values()
             .reversed()
+            .filter { it != ControlGroup.RIGHT_STICK }
             .forEach { group ->
                 val settings = getSelectedSettings(group)
                 when (group) {

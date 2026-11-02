@@ -10,7 +10,7 @@ enum class ControlGroup(
     val defaultY: Float
 ) {
     STICK("stick", true, 1.0f, 0.18f, 0.66f),
-    RIGHT_STICK("right_stick", true, 1.0f, 0.60f, 0.66f),
+    RIGHT_STICK("right_stick", false, 1.0f, 0.60f, 0.66f),
     DPAD("dpad", true, 1.0f, 0.20f, 0.31f),
     FACE("face", true, 1.0f, 0.84f, 0.64f),
     LEFT_SHOULDER("left_shoulder", true, 1.0f, 0.12f, 0.14f),
@@ -37,7 +37,8 @@ object ControlSettingsStore {
     fun load(context: Context, group: ControlGroup): ControlSettings {
         val p = prefs(context)
         return ControlSettings(
-            visible = p.getBoolean(group.key + "_visible", group.defaultVisible),
+            visible = group != ControlGroup.RIGHT_STICK &&
+                p.getBoolean(group.key + "_visible", group.defaultVisible),
             scale = p.getFloat(group.key + "_scale", group.defaultScale)
                 .coerceIn(MIN_SCALE, MAX_SCALE),
             x = p.getFloat(group.key + "_x", group.defaultX).coerceIn(0.05f, 0.95f),
@@ -49,7 +50,7 @@ object ControlSettingsStore {
 
     fun save(context: Context, group: ControlGroup, settings: ControlSettings) {
         prefs(context).edit()
-            .putBoolean(group.key + "_visible", settings.visible)
+            .putBoolean(group.key + "_visible", group != ControlGroup.RIGHT_STICK && settings.visible)
             .putFloat(group.key + "_scale", settings.scale.coerceIn(MIN_SCALE, MAX_SCALE))
             .putFloat(group.key + "_x", settings.x.coerceIn(0.05f, 0.95f))
             .putFloat(group.key + "_y", settings.y.coerceIn(0.08f, 0.92f))

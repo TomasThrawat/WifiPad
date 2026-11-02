@@ -5,7 +5,6 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.RectF
 import android.util.AttributeSet
-import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.View
 import com.google.android.material.color.MaterialColors
@@ -29,9 +28,6 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
     private var stickBase = Circle(0f, 0f, 0f)
     private var stickPointer = -1
     private var stickKnob = PointF(0f, 0f)
-    private var rightStickBase = Circle(0f, 0f, 0f)
-    private var rightStickPointer = -1
-    private var rightStickKnob = PointF(0f, 0f)
 
     private val faceButtons = mutableListOf<Rect2>()
     private val dpadButtons = mutableListOf<Rect2>()
@@ -103,7 +99,6 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
     private fun recalculateLayout(w: Int, h: Int) {
         val s = min(w, h).toFloat()
         val stick = settings.getValue(ControlGroup.STICK)
-        val rightStick = settings.getValue(ControlGroup.RIGHT_STICK)
         val dpad = settings.getValue(ControlGroup.DPAD)
         val face = settings.getValue(ControlGroup.FACE)
         val left = settings.getValue(ControlGroup.LEFT_SHOULDER)
@@ -112,10 +107,6 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         val stickRadius = s * 0.19f * stick.scale
         stickBase = Circle(w * stick.x, h * stick.y, stickRadius)
         stickKnob = PointF(stickBase.cx, stickBase.cy)
-
-        val rightStickRadius = s * 0.19f * rightStick.scale
-        rightStickBase = Circle(w * rightStick.x, h * rightStick.y, rightStickRadius)
-        rightStickKnob = PointF(rightStickBase.cx, rightStickBase.cy)
 
         val dpadButton = s * 0.072f * dpad.scale
         val dpadGap = s * 0.020f * dpad.scale
@@ -228,9 +219,6 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         if (settings.getValue(ControlGroup.STICK).visible) {
             drawStick(canvas, stickBase, stickKnob)
         }
-        if (settings.getValue(ControlGroup.RIGHT_STICK).visible) {
-            drawStick(canvas, rightStickBase, rightStickKnob)
-        }
         if (settings.getValue(ControlGroup.DPAD).visible) {
             dpadButtons.forEach { drawButton(canvas, it) }
         }
@@ -305,7 +293,6 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
             stickPointer == -1
         ) {
             stickPointer = id
-            performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
             updateStick(x, y, stickBase, stickKnob, settings.getValue(ControlGroup.STICK)) { dx, dy ->
                 state.leftX = dx
                 state.leftY = dy
@@ -313,23 +300,9 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
             return
         }
 
-        if (settings.getValue(ControlGroup.RIGHT_STICK).visible &&
-            inCircle(x, y, rightStickBase) &&
-            rightStickPointer == -1
-        ) {
-            rightStickPointer = id
-            performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-            updateStick(x, y, rightStickBase, rightStickKnob, settings.getValue(ControlGroup.RIGHT_STICK)) { dx, dy ->
-                state.rightX = dx
-                state.rightY = dy
-            }
-            return
-        }
-
         val rect = findRect(x, y) ?: return
         activePointerToRect[id] = rect
         applyRect(rect, true, y)
-        performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
     }
 
     private fun handleMove(event: MotionEvent, index: Int) {
@@ -341,10 +314,6 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
             stickPointer -> updateStick(x, y, stickBase, stickKnob, settings.getValue(ControlGroup.STICK)) { dx, dy ->
                 state.leftX = dx
                 state.leftY = dy
-            }
-            rightStickPointer -> updateStick(x, y, rightStickBase, rightStickKnob, settings.getValue(ControlGroup.RIGHT_STICK)) { dx, dy ->
-                state.rightX = dx
-                state.rightY = dy
             }
         }
         activePointerToRect[id]?.takeIf { it.bit == -1 || it.bit == -2 }?.let {
@@ -361,12 +330,6 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
             state.leftX = 0
             state.leftY = 0
         }
-        if (id == rightStickPointer) {
-            rightStickPointer = -1
-            rightStickKnob = PointF(rightStickBase.cx, rightStickBase.cy)
-            state.rightX = 0
-            state.rightY = 0
-        }
 
         activePointerToRect.remove(id)?.let { applyRect(it, false) }
     }
@@ -376,7 +339,7 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
             r.bit == -1 -> state.leftTrigger = if (pressed) triggerValue(r, touchY) else 0
             r.bit == -2 -> state.rightTrigger = if (pressed) triggerValue(r, touchY) else 0
             r.bit == ButtonBit.L1 || r.bit == ButtonBit.R1 ->
-                state.setButton(r.bit, pressed)
+                state.setButton(r.bit, pressed || activePointerToRect.values.any { it.bit == r.bit })
             dpadButtons.contains(r) -> syncDpadState()
             else -> state.setButton(
                 r.bit,
@@ -448,7 +411,6 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
 
     private fun resetInputState() {
         stickPointer = -1
-        rightStickPointer = -1
         activePointerToRect.clear()
         state.dpad = 0
         state.buttons = 0
@@ -459,7 +421,6 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         state.rightX = 0
         state.rightY = 0
         stickKnob = PointF(stickBase.cx, stickBase.cy)
-        rightStickKnob = PointF(rightStickBase.cx, rightStickBase.cy)
     }
 
     override fun onDetachedFromWindow() {
