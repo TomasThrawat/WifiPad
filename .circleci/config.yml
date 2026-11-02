@@ -144,6 +144,26 @@ jobs:
           destination: diagnostics/gradle-build.log
 
       - store_artifacts:
+          path: controller-app/build/reports/lint-results-debug.html
+          destination: diagnostics/controller-lint-results.html
+
+      - store_artifacts:
+          path: controller-app/build/reports/lint-results-debug.xml
+          destination: diagnostics/controller-lint-results.xml
+
+      - store_artifacts:
+          path: receiver-app/build/reports/lint-results-debug.html
+          destination: diagnostics/receiver-lint-results.html
+
+      - store_artifacts:
+          path: receiver-app/build/reports/lint-results-debug.xml
+          destination: diagnostics/receiver-lint-results.xml
+
+      - store_artifacts:
+          path: flutter_ui/pubspec.lock
+          destination: diagnostics/pubspec.lock
+
+      - store_artifacts:
           path: controller-app/build/outputs/apk/debug
           destination: controller-app-debug-apk
 

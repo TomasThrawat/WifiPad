@@ -31,18 +31,17 @@ No PC, no USB cable is needed at play time — wireless debugging is only used
 
 ## Build
 
-Open the `WifiPad/` folder in Android Studio, let it sync, then build/run each
-module (`controller-app`, `receiver-app`) to its respective device — or
-`./gradlew :controller-app:assembleDebug :receiver-app:assembleDebug` and
-sideload the two APKs from `*/build/outputs/apk/debug/`.
+CircleCI builds both debug APKs on pushes to main and pull requests using
+the .circleci/config.yml workflow. It bootstraps the Flutter module, runs
+flutter analyze and flutter test, then runs the controller and receiver
+Kotlin unit tests and Android Lint before assembling each debug APK.
 
-CircleCI builds both debug APKs on pushes to `main` and pull requests using
-`.circleci/config.yml`. The job runs controller and receiver unit-test tasks,
-Android Lint, and both debug APK builds. It uses the CircleCI-maintained
-`cimg/android:2026.08.1` image, Java 17, Gradle 8.14.6, Android Gradle Plugin
-8.13.2, and Kotlin Gradle Plugin 2.4.21. The repository does not include a
-`gradlew` wrapper script, so the CircleCI job installs the pinned Gradle
-version explicitly; use the same Gradle version when building locally.
+The repository does not include a Gradle wrapper. CI installs Java 17,
+Gradle 8.14.6, Android SDK 35, and NDK 28.2.13676358. It links one native app
+module at a time to the temporary Gradle project :app; therefore the old
+./gradlew :controller-app:assembleDebug :receiver-app:assembleDebug command
+is not valid for this repository. For local builds, follow the Flutter
+bootstrap and two app-build stages in .circleci/config.yml.
 
 ## One-time setup on the TV
 
@@ -80,8 +79,7 @@ immediately.
 * L2/R2 on the phone UI are simple press buttons (0 or 255), not a smooth
   drag-to-analog gesture — straightforward to extend in `GamepadView.kt`
   if a game needs a graduated trigger pull.
-* The D-pad only sends the four cardinal directions (no diagonals); the wire
-  protocol already reserves codes 2/4/6/8 for diagonals in `PROTOCOL.md` if
-  you want to add that later.
+* The D-pad supports all four cardinal directions and four diagonals
+  (8-way input), using the wire codes documented in `PROTOCOL.md`.
 * UDP is unencrypted and unauthenticated — fine on a private home network,
   not something to expose past your router.
