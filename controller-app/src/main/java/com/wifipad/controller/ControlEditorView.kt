@@ -29,9 +29,7 @@ class ControlEditorView(context: Context) : View(context) {
         strokeWidth = dp(2)
     }
 
-    private val surfaceColor by lazy {
-        MaterialColors.getColor(this, com.google.android.material.R.attr.colorSurface)
-    }
+    private val surfaceColor = android.graphics.Color.BLACK
     private val surfaceContainerColor by lazy {
         MaterialColors.getColor(
             this,
@@ -218,7 +216,7 @@ class ControlEditorView(context: Context) : View(context) {
             .forEach { group ->
                 val settings = getSelectedSettings(group)
                 when (group) {
-                    ControlGroup.STICK -> {
+                    ControlGroup.STICK, ControlGroup.RIGHT_STICK -> {
                         val center = getCenter(settings)
                         val radius = size * 0.19f * settings.scale
                         if (hypot(
@@ -254,13 +252,13 @@ class ControlEditorView(context: Context) : View(context) {
                     ControlGroup.LEFT_SHOULDER,
                     ControlGroup.RIGHT_SHOULDER -> {
                         val half = size * 0.060f * settings.scale
-                        val gap = size * 0.11f * settings.scale
+                        val gap = size * 0.18f * settings.scale
                         val center = getCenter(settings)
                         if (RectF(
                                 center.first - half,
                                 center.second - gap / 2f - half,
                                 center.first + half,
-                                center.second + gap / 2f + half
+                                center.second + gap / 2f + half * 1.25f
                             ).contains(x, y)
                         ) return group
                     }
@@ -279,7 +277,7 @@ class ControlEditorView(context: Context) : View(context) {
         val alpha = if (settings.visible) 255 else 65
 
         when (group) {
-            ControlGroup.STICK -> drawStick(canvas, settings, size, alpha)
+            ControlGroup.STICK, ControlGroup.RIGHT_STICK -> drawStick(canvas, settings, size, alpha)
             ControlGroup.DPAD -> drawDpad(canvas, settings, size, alpha)
             ControlGroup.FACE -> drawFace(canvas, settings, size, alpha)
             ControlGroup.LEFT_SHOULDER,
@@ -357,7 +355,7 @@ class ControlEditorView(context: Context) : View(context) {
         alpha: Int
     ) {
         val half = size * 0.060f * settings.scale
-        val gap = size * 0.11f * settings.scale
+        val gap = size * 0.18f * settings.scale
         val center = getCenter(settings)
         val topLabel = if (group == ControlGroup.LEFT_SHOULDER) "L1" else "R1"
         val bottomLabel = if (group == ControlGroup.LEFT_SHOULDER) "L2" else "R2"
@@ -372,14 +370,22 @@ class ControlEditorView(context: Context) : View(context) {
             topLabel,
             alpha
         )
-        drawCircleButton(
-            canvas,
-            center.first,
-            center.second + gap / 2f,
-            half,
-            controlPaint,
+        val triggerHalfWidth = half * 0.85f
+        val triggerHalfHeight = half * 1.25f
+        val triggerRect = RectF(
+            center.first - triggerHalfWidth,
+            center.second + gap / 2f - triggerHalfHeight,
+            center.first + triggerHalfWidth,
+            center.second + gap / 2f + triggerHalfHeight
+        )
+        controlPaint.alpha = alpha
+        canvas.drawRoundRect(triggerRect, triggerHalfWidth * 0.4f, triggerHalfWidth * 0.4f, controlPaint)
+        val triggerLabelPaint = Paint(textPaint).apply { this.alpha = alpha }
+        canvas.drawText(
             bottomLabel,
-            alpha
+            triggerRect.centerX(),
+            triggerRect.centerY() - (triggerLabelPaint.ascent() + triggerLabelPaint.descent()) / 2f,
+            triggerLabelPaint
         )
     }
 
@@ -463,7 +469,7 @@ class ControlEditorView(context: Context) : View(context) {
         settings: ControlSettings,
         size: Float
     ): Float = when (group) {
-        ControlGroup.STICK -> size * 0.19f * settings.scale
+        ControlGroup.STICK, ControlGroup.RIGHT_STICK -> size * 0.19f * settings.scale
         ControlGroup.DPAD -> {
             val button = size * 0.072f * settings.scale
             val gap = size * 0.020f * settings.scale
@@ -483,7 +489,7 @@ class ControlEditorView(context: Context) : View(context) {
         settings: ControlSettings,
         size: Float
     ): Float = when (group) {
-        ControlGroup.STICK -> size * 0.19f * settings.scale
+        ControlGroup.STICK, ControlGroup.RIGHT_STICK -> size * 0.19f * settings.scale
         ControlGroup.DPAD -> {
             val button = size * 0.072f * settings.scale
             val gap = size * 0.020f * settings.scale
@@ -497,8 +503,8 @@ class ControlEditorView(context: Context) : View(context) {
         ControlGroup.LEFT_SHOULDER,
         ControlGroup.RIGHT_SHOULDER -> {
             val half = size * 0.060f * settings.scale
-            val gap = size * 0.11f * settings.scale
-            half + gap / 2f
+            val gap = size * 0.18f * settings.scale
+            half * 1.25f + gap / 2f
         }
     }
 

@@ -32,3 +32,19 @@ class GamepadState {
 
     fun toPacket(): ByteArray = ByteArray(Protocol.PACKET_SIZE).also(::writePacket)
 }
+
+
+internal object DpadEncoding {
+    // Source mask: UP=1, RIGHT=2, DOWN=4, LEFT=8. Wire values are N, NE, E, SE, S, SW, W, NW.
+    fun fromCardinalMask(mask: Int): Int = when (mask and 0x0F) {
+        0x1 -> 1
+        0x3 -> 2
+        0x2 -> 3
+        0x6 -> 4
+        0x4 -> 5
+        0xC -> 6
+        0x8 -> 7
+        0x9 -> 8
+        else -> 0
+    }
+}

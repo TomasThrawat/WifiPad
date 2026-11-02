@@ -24,6 +24,8 @@ class GamepadStateTest {
         assertEquals(0x04, packet[3].toInt() and 0xFF)
         assertEquals(-127, packet[4].toInt())
         assertEquals(127, packet[5].toInt())
+        assertEquals(-1, packet[6].toInt())
+        assertEquals(1, packet[7].toInt())
         assertEquals(255, packet[8].toInt() and 0xFF)
         assertEquals(255, packet[9].toInt() and 0xFF)
         assertEquals(8, packet[10].toInt() and 0xFF)
@@ -67,4 +69,17 @@ class GamepadStateTest {
         state.setButton(ButtonBit.A, false)
         assertEquals(ButtonBit.MODE, state.buttons)
     }
+    @Test
+    fun dpadCardinalAndDiagonalMasksMapToWireCodes() {
+        assertEquals(0, DpadEncoding.fromCardinalMask(0))
+        assertEquals(1, DpadEncoding.fromCardinalMask(1))
+        assertEquals(2, DpadEncoding.fromCardinalMask(3))
+        assertEquals(3, DpadEncoding.fromCardinalMask(2))
+        assertEquals(4, DpadEncoding.fromCardinalMask(6))
+        assertEquals(5, DpadEncoding.fromCardinalMask(4))
+        assertEquals(6, DpadEncoding.fromCardinalMask(12))
+        assertEquals(7, DpadEncoding.fromCardinalMask(8))
+        assertEquals(8, DpadEncoding.fromCardinalMask(9))
+    }
+
 }

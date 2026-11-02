@@ -36,14 +36,13 @@ module (`controller-app`, `receiver-app`) to its respective device — or
 `./gradlew :controller-app:assembleDebug :receiver-app:assembleDebug` and
 sideload the two APKs from `*/build/outputs/apk/debug/`.
 
-This repo builds both debug APKs automatically on every push to `main` via
-`.github/workflows/build.yml`. CI uses Gradle 8.14.6, Android Gradle Plugin
-8.13.2, and Kotlin Gradle Plugin 2.4.21. This stable toolchain keeps the
-external Kotlin plugin compatible with the Android plugin and avoids the
-Gradle 9 `Configuration.setVisible()` deprecation warnings found in the newer
-toolchain. The Android SDK is preinstalled on the CI runner. The repository
-does not include a `gradlew` wrapper script, so use Android Studio or an
-installed Gradle version matching the workflow when building locally.
+CircleCI builds both debug APKs on pushes to `main` and pull requests using
+`.circleci/config.yml`. The job runs controller and receiver unit-test tasks,
+Android Lint, and both debug APK builds. It uses the CircleCI-maintained
+`cimg/android:2026.08.1` image, Java 17, Gradle 8.14.6, Android Gradle Plugin
+8.13.2, and Kotlin Gradle Plugin 2.4.21. The repository does not include a
+`gradlew` wrapper script, so the CircleCI job installs the pinned Gradle
+version explicitly; use the same Gradle version when building locally.
 
 ## One-time setup on the TV
 

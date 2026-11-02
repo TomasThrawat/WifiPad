@@ -9,9 +9,10 @@ enum class ControlGroup(
     val defaultX: Float,
     val defaultY: Float
 ) {
-    STICK("stick", true, 1.0f, 0.22f, 0.64f),
-    DPAD("dpad", true, 1.0f, 0.22f, 0.31f),
-    FACE("face", true, 1.0f, 0.78f, 0.64f),
+    STICK("stick", true, 1.0f, 0.18f, 0.66f),
+    RIGHT_STICK("right_stick", true, 1.0f, 0.60f, 0.66f),
+    DPAD("dpad", true, 1.0f, 0.20f, 0.31f),
+    FACE("face", true, 1.0f, 0.84f, 0.64f),
     LEFT_SHOULDER("left_shoulder", true, 1.0f, 0.12f, 0.14f),
     RIGHT_SHOULDER("right_shoulder", true, 1.0f, 0.88f, 0.14f)
 }

@@ -31,12 +31,7 @@ class MainActivity : AppCompatActivity() {
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(
-                MaterialColors.getColor(
-                    this,
-                    com.google.android.material.R.attr.colorSurface
-                )
-            )
+            setBackgroundColor(android.graphics.Color.BLACK)
             setPadding(dp(20), dp(12), dp(20), dp(24))
         }
 

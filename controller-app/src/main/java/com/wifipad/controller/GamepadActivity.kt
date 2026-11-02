@@ -34,12 +34,7 @@ class GamepadActivity : AppCompatActivity() {
         padView = GamepadView(this, null)
 
         val root = FrameLayout(this).apply {
-            setBackgroundColor(
-                MaterialColors.getColor(
-                    this,
-                    com.google.android.material.R.attr.colorSurface
-                )
-            )
+            setBackgroundColor(android.graphics.Color.BLACK)
             addView(
                 padView,
                 FrameLayout.LayoutParams(
