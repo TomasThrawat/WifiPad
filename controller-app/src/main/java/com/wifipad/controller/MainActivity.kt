@@ -37,11 +37,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var connectButton: MaterialButton
     private lateinit var messageView: MaterialTextView
 
-    @Suppress("DEPRECATION")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        window.statusBarColor = BLACK
-        window.navigationBarColor = BLACK
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         setContentView(createScreen())
         hostInput.setText(getSharedPreferences(PREFS, MODE_PRIVATE).getString(PREF_HOST, "").orEmpty())
@@ -113,7 +110,7 @@ class MainActivity : AppCompatActivity() {
         addSpace(panelContent, 18)
 
         connectButton = MaterialButton(this).apply {
-            text = "→   Open controller"
+            text = getString(R.string.open_controller)
             isAllCaps = false
             textSize = 15f
             setTextColor(BLACK)
@@ -146,16 +143,16 @@ class MainActivity : AppCompatActivity() {
     private fun connect() {
         val host = hostInput.text?.toString()?.trim().orEmpty()
         if (host.isBlank()) {
-            messageView.text = getString(R.string.connection_error_empty_host)
+            messageView.text = getString(R.string.enter_tv_ip)
             messageView.visibility = android.view.View.VISIBLE
             return
         }
         getSharedPreferences(PREFS, MODE_PRIVATE).edit { putString(PREF_HOST, host) }
         connectButton.isEnabled = false
-        connectButton.text = getString(R.string.connection_opening_controller)
+        connectButton.text = getString(R.string.opening_controls)
         startActivity(Intent(this, GamepadActivity::class.java).putExtra(GamepadActivity.EXTRA_HOST, host))
         connectButton.isEnabled = true
-        connectButton.text = getString(R.string.connection_open_controller)
+        connectButton.text = getString(R.string.open_controller)
     }
 
     private fun createBrandHeader(eyebrow: String, subtitle: String, symbol: String): LinearLayout {

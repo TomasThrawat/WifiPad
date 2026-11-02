@@ -22,6 +22,7 @@ import com.google.android.material.card.MaterialCardView
 import com.google.android.material.textview.MaterialTextView
 import rikka.shizuku.Shizuku
 import java.net.Inet4Address
+import java.text.NumberFormat
 import java.util.Locale
 
 class MainActivity : AppCompatActivity() {
@@ -119,11 +120,8 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    @Suppress("DEPRECATION")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        window.statusBarColor = BLACK
-        window.navigationBarColor = BLACK
         Shizuku.addRequestPermissionResultListener(permissionListener)
         setContentView(createScreen())
         refreshStatus()
@@ -285,8 +283,8 @@ class MainActivity : AppCompatActivity() {
         statusPill.background = if (snapshot.running) rounded(GREEN_PANEL, GREEN_LINE, 40)
             else rounded(RAISED, LINE, 40)
         addressValue.text = snapshot.address
-        portValue.text = String.format(Locale.getDefault(), "%d", snapshot.port)
-        packetsValue.text = String.format(Locale.getDefault(), "%d", snapshot.packets)
+        portValue.text = NumberFormat.getIntegerInstance(Locale.getDefault()).format(snapshot.port)
+        packetsValue.text = NumberFormat.getIntegerInstance(Locale.getDefault()).format(snapshot.packets)
         shizukuInfo.text = when {
             !snapshot.shizukuConnected -> "Shizuku is not connected."
             snapshot.permissionGranted -> "Shizuku connected and permission granted."

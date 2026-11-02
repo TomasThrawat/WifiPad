@@ -1,12 +1,10 @@
 package com.wifipad.controller
 
-import android.annotation.SuppressLint
-
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetAddress
 import java.util.concurrent.Executors
-import java.util.concurrent.ScheduledExecutorService
+import java.util.concurrent.ExecutorService
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -16,13 +14,11 @@ class UdpSender(private val state: GamepadState, private val hz: Int = 60) {
     @Volatile private var socket: DatagramSocket? = null
     @Volatile private var address: InetAddress? = null
     @Volatile private var port: Int = Protocol.DEFAULT_PORT
-    @Volatile private var executor: ScheduledExecutorService? = null
+    @Volatile private var executor: ExecutorService? = null
     private val packetBuffer = ByteArray(Protocol.PACKET_SIZE)
     private var datagram: DatagramPacket? = null
     @Volatile var onError: ((String) -> Unit)? = null
 
-    // Fixed-rate scheduling intentionally preserves the configured controller packet cadence.
-    @SuppressLint("DiscouragedApi")
     fun start(host: String, port: Int) {
         stop()
         if (host.isBlank()) {
@@ -34,7 +30,7 @@ class UdpSender(private val state: GamepadState, private val hz: Int = 60) {
             return
         }
 
-        val exec = Executors.newSingleThreadScheduledExecutor { runnable ->
+        val exec = Executors.newSingleThreadExecutor { runnable ->
             Thread(runnable, "wifipad-udp").apply { isDaemon = true }
         }
         executor = exec
@@ -57,12 +53,18 @@ class UdpSender(private val state: GamepadState, private val hz: Int = 60) {
                     }
                     if (opened && running.get()) {
                         val periodNanos = 1_000_000_000L / hz.coerceIn(1, 240)
-                        exec.scheduleAtFixedRate(
-                            { if (running.get()) sendOnce() },
-                            0,
-                            periodNanos,
-                            TimeUnit.NANOSECONDS
-                        )
+                        var nextTickNanos = System.nanoTime()
+                        while (running.get() && !Thread.currentThread().isInterrupted) {
+                            sendOnce()
+                            nextTickNanos += periodNanos
+                            val remainingNanos = nextTickNanos - System.nanoTime()
+                            if (remainingNanos > 0L) {
+                                TimeUnit.NANOSECONDS.sleep(remainingNanos)
+                            } else {
+                                // Skip missed ticks instead of queuing a burst after process suspension.
+                                nextTickNanos = System.nanoTime() + periodNanos
+                            }
+                        }
                     }
                 } catch (e: Exception) {
                     if (running.get()) {

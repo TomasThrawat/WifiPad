@@ -439,8 +439,8 @@ class SettingsActivity : AppCompatActivity() {
         val yPercent = (current.y * 100f).roundToInt()
 
         sizeValue.text = getString(R.string.settings_size_value, scalePercent)
-        deadZoneValue.text = getString(R.string.settings_dead_zone_value, (current.deadZone * 100f).roundToInt())
-        sensitivityValue.text = getString(R.string.settings_sensitivity_value, (current.sensitivity * 100f).roundToInt())
+        deadZoneValue.text = getString(R.string.settings_size_value, (current.deadZone * 100f).roundToInt())
+        sensitivityValue.text = getString(R.string.settings_size_value, (current.sensitivity * 100f).roundToInt())
         positionLabel.text = getString(
             R.string.settings_position_value,
             xPercent,

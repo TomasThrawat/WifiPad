@@ -1,5 +1,8 @@
 <resources>
     <string name="app_name">WifiPad Controller</string>
+    <string name="enter_tv_ip">Enter the TV IP address or host name.</string>
+    <string name="opening_controls">Opening controller…</string>
+    <string name="open_controller">→   Open controller</string>
     <string name="settings">Settings</string>
     <string name="settings_title">Controller settings</string>
     <string name="settings_editor_hint">Tap a control to select it. Drag it to move it. Only the selected control gets the size and Show controls below.</string>
@@ -10,8 +13,6 @@
     <string name="settings_reset_done">Controller layout reset in the editor</string>
     <string name="settings_size">Size</string>
     <string name="settings_size_value">%1$d%%</string>
-    <string name="settings_dead_zone_value">%1$d%%</string>
-    <string name="settings_sensitivity_value">%1$d%%</string>
     <string name="settings_position_value">Position: %1$d%%, %2$d%%</string>
     <string name="control_stick">Analog stick</string>
     <string name="control_right_stick">Right stick</string>
@@ -22,7 +23,4 @@
     <string name="status_error">Error: %1$s</string>
     <string name="settings_dead_zone">Stick dead zone</string>
     <string name="settings_sensitivity">Stick sensitivity</string>
-    <string name="connection_error_empty_host">Enter the TV IP address or host name.</string>
-    <string name="connection_opening_controller">Opening controller…</string>
-    <string name="connection_open_controller">→   Open controller</string>
 </resources>

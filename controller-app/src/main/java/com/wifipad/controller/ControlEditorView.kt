@@ -6,6 +6,7 @@ import android.graphics.Paint
 import android.graphics.RectF
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewConfiguration
 import com.google.android.material.color.MaterialColors
 import kotlin.math.hypot
 import kotlin.math.min
@@ -17,6 +18,10 @@ class ControlEditorView(context: Context) : View(context) {
     private var activePointerId = -1
     private var dragOffsetX = 0f
     private var dragOffsetY = 0f
+    private var downX = 0f
+    private var downY = 0f
+    private var activePointerMoved = false
+    private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
     private var selectionListener: ((ControlGroup) -> Unit)? = null
 
     private val backgroundPaint = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -152,6 +157,11 @@ class ControlEditorView(context: Context) : View(context) {
         }
     }
 
+    override fun performClick(): Boolean {
+        super.performClick()
+        return true
+    }
+
     override fun onTouchEvent(event: MotionEvent): Boolean {
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN, MotionEvent.ACTION_POINTER_DOWN -> {
@@ -160,6 +170,9 @@ class ControlEditorView(context: Context) : View(context) {
                 if (hit != null) {
                     selectGroup(hit)
                     activePointerId = event.getPointerId(index)
+                    downX = event.getX(index)
+                    downY = event.getY(index)
+                    activePointerMoved = false
                     val center = getCenter(getSelectedSettings(hit))
                     dragOffsetX = event.getX(index) - center.first
                     dragOffsetY = event.getY(index) - center.second
@@ -173,8 +186,17 @@ class ControlEditorView(context: Context) : View(context) {
                 val index = event.findPointerIndex(activePointerId)
                 if (index < 0) return true
 
-                val x = event.getX(index) - dragOffsetX
-                val y = event.getY(index) - dragOffsetY
+                val pointerX = event.getX(index)
+                val pointerY = event.getY(index)
+                if (hypot(
+                        (pointerX - downX).toDouble(),
+                        (pointerY - downY).toDouble()
+                    ) > touchSlop
+                ) {
+                    activePointerMoved = true
+                }
+                val x = pointerX - dragOffsetX
+                val y = pointerY - dragOffsetY
 
                 moveSelectedTo(x, y, size = min(width, height).toFloat())
                 return true
@@ -182,25 +204,23 @@ class ControlEditorView(context: Context) : View(context) {
 
             MotionEvent.ACTION_UP, MotionEvent.ACTION_POINTER_UP -> {
                 if (event.getPointerId(event.actionIndex) == activePointerId) {
+                    val wasTap = !activePointerMoved
                     activePointerId = -1
+                    activePointerMoved = false
                     parent.requestDisallowInterceptTouchEvent(false)
-                    performClick()
+                    if (wasTap) performClick()
                 }
                 return true
             }
 
             MotionEvent.ACTION_CANCEL -> {
                 activePointerId = -1
+                activePointerMoved = false
                 parent.requestDisallowInterceptTouchEvent(false)
                 return true
             }
         }
 
-        return true
-    }
-
-    override fun performClick(): Boolean {
-        super.performClick()
         return true
     }
 

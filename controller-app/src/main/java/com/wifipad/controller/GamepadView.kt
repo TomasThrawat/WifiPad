@@ -268,6 +268,11 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         )
     }
 
+    override fun performClick(): Boolean {
+        super.performClick()
+        return true
+    }
+
     override fun onTouchEvent(event: MotionEvent): Boolean {
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN,
@@ -276,7 +281,9 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
                 for (i in 0 until event.pointerCount) handleMove(event, i)
             }
             MotionEvent.ACTION_UP,
-            MotionEvent.ACTION_POINTER_UP -> handleUp(event, event.actionIndex)
+            MotionEvent.ACTION_POINTER_UP -> {
+                if (handleUp(event, event.actionIndex)) performClick()
+            }
             MotionEvent.ACTION_CANCEL -> resetInputState()
         }
 
@@ -322,7 +329,7 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         }
     }
 
-    private fun handleUp(event: MotionEvent, index: Int) {
+    private fun handleUp(event: MotionEvent, index: Int): Boolean {
         val id = event.getPointerId(index)
 
         if (id == stickPointer) {
@@ -332,14 +339,8 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
             state.leftY = 0
         }
 
-        activePointerToRect.remove(id)?.let { rect ->
-            applyRect(rect, false)
-            if (rect.bit >= 0) performClick()
-        }
-    }
-
-    override fun performClick(): Boolean {
-        super.performClick()
+        val rect = activePointerToRect.remove(id) ?: return false
+        applyRect(rect, false)
         return true
     }
 
