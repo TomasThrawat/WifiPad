@@ -13,14 +13,25 @@ jobs:
       - run:
           name: Install Flutter stable and bootstrap the module
           command: |
+            set -euxo pipefail
+            repo_root="$PWD"
+            : > "$repo_root/flutter-bootstrap.log"
+            : > "$repo_root/gradle-build.log"
+            exec > >(tee -a "$repo_root/flutter-bootstrap.log") 2>&1
+
             if [ ! -x "$HOME/flutter/bin/flutter" ]; then
               git clone --depth 1 --branch stable https://github.com/flutter/flutter.git "$HOME/flutter"
             fi
+
+            export FLUTTER_ROOT="$HOME/flutter"
+            export PATH="$FLUTTER_ROOT/bin:$PATH"
             echo 'export FLUTTER_ROOT=$HOME/flutter' >> "$BASH_ENV"
             echo 'export PATH=$HOME/flutter/bin:$PATH' >> "$BASH_ENV"
-            "$HOME/flutter/bin/flutter" config --no-analytics
-            "$HOME/flutter/bin/flutter" --version
-            cd flutter_ui
+            command -v flutter
+            flutter config --no-analytics
+            flutter --version
+
+            cd "$repo_root/flutter_ui"
             backup_dir="$HOME/wifipad-flutter-source-backup"
             rm -rf "$backup_dir"
             mkdir -p "$backup_dir"
@@ -73,7 +84,14 @@ jobs:
       - run:
           name: Run unit tests, lint, and build both APKs
           command: |
-            gradle --no-daemon --stacktrace --warning-mode all               :controller-app:testDebugUnitTest               :receiver-app:testDebugUnitTest               :controller-app:lintDebug               :receiver-app:lintDebug               :controller-app:assembleDebug               :receiver-app:assembleDebug
+            set -euxo pipefail
+            gradle --no-daemon --stacktrace --warning-mode all \
+              :controller-app:testDebugUnitTest \
+              :receiver-app:testDebugUnitTest \
+              :controller-app:lintDebug \
+              :receiver-app:lintDebug \
+              :controller-app:assembleDebug \
+              :receiver-app:assembleDebug 2>&1 | tee "$PWD/gradle-build.log"
 
       - save_cache:
           key: wifipad-gradle-flutter-v2-{{ checksum "build.gradle.kts" }}-{{ checksum "settings.gradle.kts" }}
@@ -87,6 +105,14 @@ jobs:
 
       - store_test_results:
           path: receiver-app/build/test-results
+
+      - store_artifacts:
+          path: flutter-bootstrap.log
+          destination: diagnostics/flutter-bootstrap.log
+
+      - store_artifacts:
+          path: gradle-build.log
+          destination: diagnostics/gradle-build.log
 
       - store_artifacts:
           path: controller-app/build/outputs/apk/debug
