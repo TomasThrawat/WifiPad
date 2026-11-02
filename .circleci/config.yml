@@ -44,6 +44,8 @@ jobs:
             cp -R "$backup_dir/lib" lib
             cp -R "$backup_dir/test" test
             flutter pub get
+            test -f "$repo_root/flutter_ui/.android/include_flutter.groovy"
+            ls -la "$repo_root/flutter_ui/.android"
             flutter analyze --no-pub
             flutter test --no-pub
 

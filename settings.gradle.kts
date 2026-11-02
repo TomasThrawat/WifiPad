@@ -18,8 +18,11 @@ include(":controller-app")
 include(":receiver-app")
 
 // Flutter generates this bridge project when pub dependencies are resolved.
-val flutterModuleInclude = file("flutter_ui/.android/include_flutter.groovy")
+val flutterModuleInclude = File(settingsDir, "flutter_ui/.android/include_flutter.groovy")
 if (!flutterModuleInclude.isFile) {
-    throw GradleException("Flutter module is not bootstrapped. Run flutter pub get in flutter_ui.")
+    throw GradleException(
+        "Flutter module bootstrap is missing: \${flutterModuleInclude.absolutePath}. " +
+            "Check flutter_ui/pubspec.yaml module metadata and run flutter pub get."
+    )
 }
 apply(from = flutterModuleInclude)
