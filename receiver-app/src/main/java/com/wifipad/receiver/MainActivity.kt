@@ -341,9 +341,9 @@ class MainActivity : AppCompatActivity() {
         ) {
             if (shouldShowRequestPermissionRationale(LOCAL_NETWORK_PERMISSION)) {
                 android.app.AlertDialog.Builder(this)
-                    .setTitle("Local network access required")
-                    .setMessage("WifiPad must receive controller packets from your phone over the local network. Allow this permission to start the receiver.")
-                    .setPositiveButton("Try again") { _, _ ->
+                    .setTitle(R.string.local_network_permission_title)
+                    .setMessage(R.string.local_network_permission_rationale)
+                    .setPositiveButton(R.string.local_network_permission_retry) { _, _ ->
                         requestPermissions(arrayOf(LOCAL_NETWORK_PERMISSION), LOCAL_NETWORK_REQUEST)
                     }
                     .setNegativeButton(android.R.string.cancel, null)
@@ -403,14 +403,14 @@ class MainActivity : AppCompatActivity() {
         if (grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) {
             startReceiver()
         } else if (shouldShowRequestPermissionRationale(LOCAL_NETWORK_PERMISSION)) {
-            messageView.text = "Local network permission was denied. Press Start to try again."
+            messageView.text = getString(R.string.local_network_permission_denied_retry)
             messageView.visibility = View.VISIBLE
             refreshStatus()
         } else {
             android.app.AlertDialog.Builder(this)
-                .setTitle("Local network access required")
-                .setMessage("Enable local network access in WifiPad Receiver app permissions, then return and press Start.")
-                .setPositiveButton("Open app settings") { _, _ ->
+                .setTitle(R.string.local_network_permission_title)
+                .setMessage(R.string.local_network_permission_settings_message)
+                .setPositiveButton(R.string.local_network_permission_open_settings) { _, _ ->
                     val intent = android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
                         data = android.net.Uri.fromParts("package", packageName, null)
                     }
