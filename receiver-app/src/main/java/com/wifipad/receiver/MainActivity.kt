@@ -123,7 +123,9 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Shizuku.addRequestPermissionResultListener(permissionListener)
-        setContentView(createScreen())
+        val screen = createScreen()
+        setContentView(screen)
+        screen.applySystemBarInsets()
         refreshStatus()
     }
 

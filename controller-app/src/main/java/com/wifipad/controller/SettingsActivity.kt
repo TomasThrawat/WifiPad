@@ -409,6 +409,7 @@ class SettingsActivity : AppCompatActivity() {
         )
 
         setContentView(root)
+        root.applySystemBarInsets()
         selectGroup(ControlGroup.STICK)
     }
 

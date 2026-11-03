@@ -80,6 +80,7 @@ class GamepadActivity : AppCompatActivity() {
         )
 
         setContentView(root)
+        root.applySystemBarInsets()
 
         sender = UdpSender(padView.state)
         sender.onError = { message ->

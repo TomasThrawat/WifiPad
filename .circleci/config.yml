@@ -34,7 +34,7 @@ jobs:
             "$HOME/gradle-8.14.6/bin/gradle" --version
 
       - run:
-          name: Verify Android SDK 35
+          name: Verify Android SDK 36
           command: |
             SDK_ROOT="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
             test -n "$SDK_ROOT"
@@ -49,6 +49,12 @@ jobs:
             echo "export PATH=$SDK_ROOT/cmdline-tools/latest/bin:$PATH" >> "$BASH_ENV"
             test -d "$SDK_ROOT/platforms/android-36"
             test -d "$SDK_ROOT/build-tools/36.0.0"
+
+      - run:
+          name: Prepare launcher icon silhouettes
+          command: |
+            python3 -m pip install --user --disable-pip-version-check --no-warn-script-location Pillow==11.3.0
+            python3 scripts/prepare_launcher_icons.py
 
       - run:
           name: Build phone controller APK
