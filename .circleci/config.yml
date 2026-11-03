@@ -46,7 +46,7 @@ jobs:
             yes | "$SDKMANAGER" --sdk_root="$SDK_ROOT" --licenses >/dev/null
             set -o pipefail
             "$SDKMANAGER" --sdk_root="$SDK_ROOT" "cmdline-tools;latest" "build-tools;36.0.0" "ndk;28.2.13676358"
-          "$SDKMANAGER" --sdk_root="$SDK_ROOT" --channel=1 "platforms;android-37"
+            "$SDKMANAGER" --sdk_root="$SDK_ROOT" --channel=1 "platforms;android-37"
             echo "export PATH=$SDK_ROOT/cmdline-tools/latest/bin:$PATH" >> "$BASH_ENV"
             test -d "$SDK_ROOT/platforms/android-37"
             test -d "$SDK_ROOT/build-tools/36.0.0"
