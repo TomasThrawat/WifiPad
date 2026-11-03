@@ -463,7 +463,7 @@ class SettingsActivity : AppCompatActivity() {
                 val button = MaterialButton(this).apply {
                     isAllCaps = false
                     cornerRadius = dp(14)
-                    fun refresh() { text = "$position → ${ButtonMappingStore.get(this@SettingsActivity, position)}" }
+                    fun refresh() { text = getString(R.string.button_mapping_value, position, ButtonMappingStore.get(this@SettingsActivity, position)) }
                     refresh()
                     setOnClickListener {
                         val options = ButtonMappingStore.positions.toTypedArray()

@@ -60,7 +60,9 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
             val target = accessibilityTargets().firstOrNull { it.id == virtualViewId }
             if (target == null) {
                 node.contentDescription = "Controller control"
-                node.setBoundsInParent(Rect(0, 0, 1, 1))
+                val screenOrigin = IntArray(2)
+                this@GamepadView.getLocationOnScreen(screenOrigin)
+                node.setBoundsInScreen(Rect(screenOrigin[0], screenOrigin[1], screenOrigin[0] + 1, screenOrigin[1] + 1))
                 return
             }
             node.className = android.widget.Button::class.java.name
@@ -71,9 +73,11 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
                 ControlGroup.DPAD -> context.getString(R.string.accessibility_dpad, target.label)
                 else -> context.getString(R.string.accessibility_button, target.label)
             }
-            node.setBoundsInParent(Rect(
-                target.bounds.left.toInt(), target.bounds.top.toInt(),
-                target.bounds.right.toInt(), target.bounds.bottom.toInt()
+            val screenOrigin = IntArray(2)
+            this@GamepadView.getLocationOnScreen(screenOrigin)
+            node.setBoundsInScreen(Rect(
+                target.bounds.left.toInt() + screenOrigin[0], target.bounds.top.toInt() + screenOrigin[1],
+                target.bounds.right.toInt() + screenOrigin[0], target.bounds.bottom.toInt() + screenOrigin[1]
             ))
             node.isClickable = true
             node.addAction(AccessibilityNodeInfoCompat.ACTION_CLICK)

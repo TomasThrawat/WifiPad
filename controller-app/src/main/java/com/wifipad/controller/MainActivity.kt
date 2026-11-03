@@ -217,7 +217,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startController(pairing: TvPairing) {
-        getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(PREF_HOST, pairing.host).apply()
+        getSharedPreferences(PREFS, MODE_PRIVATE).edit { putString(PREF_HOST, pairing.host) }
         selectedTvId = pairing.tvId
         hostInput.setText(pairing.host)
         startActivity(Intent(this, GamepadActivity::class.java).putExtra(GamepadActivity.EXTRA_TV_ID, pairing.tvId))
@@ -230,7 +230,7 @@ class MainActivity : AppCompatActivity() {
         if (old != null) discoveryList.removeView(old)
         val button = MaterialButton(this).apply {
             tag = pairing.tvId
-            text = "${pairing.name}  ·  ${pairing.host}"
+            text = getString(R.string.paired_tv_label, pairing.name, pairing.host)
             isAllCaps = false
             cornerRadius = dp(14)
             setOnClickListener { startController(pairing) }
@@ -257,7 +257,7 @@ class MainActivity : AppCompatActivity() {
                     addPairedTvButton(updated)
                 } else {
                     val found = MaterialTextView(this).apply {
-                        text = "${device.name}  ·  ${device.host}  ·  ${getString(R.string.scan_tv_qr)}"
+                        text = getString(R.string.discovered_tv_label, device.name, device.host, getString(R.string.scan_tv_qr))
                         setTextColor(WHITE)
                         textSize = 13f
                         setPadding(dp(12), dp(10), dp(12), dp(10))

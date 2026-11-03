@@ -1,4 +1,5 @@
 package com.wifipad.controller
+import androidx.core.content.edit
 
 import android.content.Context
 import org.json.JSONObject
@@ -47,7 +48,7 @@ internal object GamepadProfileStore {
             else -> return
         }
         preset.forEach { (group, settings) -> ControlSettingsStore.save(context, group, settings) }
-        prefs.edit().putBoolean(initKey, true).apply()
+        prefs.edit { putBoolean(initKey, true) }
     }
 
     fun export(context: Context): String {

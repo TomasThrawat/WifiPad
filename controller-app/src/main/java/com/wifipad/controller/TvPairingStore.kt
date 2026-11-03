@@ -43,15 +43,16 @@ internal object TvPairingStore {
     }
 
     fun fromJson(json: JSONObject?): TvPairing? = runCatching {
-        require(json?.optString("app") == "WifiPad" || json?.has("tvId") == true)
-        val tvId = json!!.getString("tvId")
-        val controllerId = json.getString("controllerId")
-        val secret = json.getString("secret")
+        val source = requireNotNull(json)
+        require(source.optString("app") == "WifiPad" || source.has("tvId"))
+        val tvId = source.getString("tvId")
+        val controllerId = source.getString("controllerId")
+        val secret = source.getString("secret")
         require(SecureProtocol.fromHex(controllerId, 16) != null)
         require(SecureProtocol.fromHex(secret, 32) != null)
-        val host = json.getString("host").trim()
-        val port = json.optInt("port", 27191)
+        val host = source.getString("host").trim()
+        val port = source.optInt("port", 27191)
         require(host.isNotBlank() && port in 1..65535)
-        TvPairing(tvId, controllerId, secret, host, port, json.optString("name", "WifiPad TV"))
+        TvPairing(tvId, controllerId, secret, host, port, source.optString("name", "WifiPad TV"))
     }.getOrNull()
 }

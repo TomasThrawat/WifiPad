@@ -1,8 +1,6 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
     <string name="app_name">WifiPad Controller</string>
-    <string name="enter_tv_ip">Enter the TV IP address or host name.</string>
-    <string name="opening_controls">Opening controller…</string>
     <string name="open_controller">→   Open controller</string>
     <string name="settings">Settings</string>
     <string name="settings_title">Controller settings</string>
@@ -42,10 +40,9 @@
     <string name="pair_tv_first">Pair this TV by scanning the QR code shown in WifiPad Receiver first.</string>
     <string name="invalid_pairing_qr">This QR code is not a valid WifiPad v2 pairing code.</string>
     <string name="local_network_permission_denied_retry">Local network access was denied. Allow it to discover and connect to your TV.</string>
-    <string name="mode_gamepad">Gamepad</string>
     <string name="secure_pending">Secure connection pending</string>
     <string name="connection_disconnected">Disconnected</string>
-<string name="control_profiles">Control profiles</string>
+    <string name="control_profiles">Control profiles</string>
     <string name="profile_fps">FPS</string>
     <string name="profile_racing">Racing</string>
     <string name="profile_platformer">Platformer</string>
@@ -61,5 +58,8 @@
     <string name="accessibility_right_stick">Right analog stick. Drag to move the camera. Tap to press R3.</string>
     <string name="accessibility_dpad">D-pad %1$s</string>
     <string name="accessibility_button">%1$s button</string>
-    <string name="connection_stats">Connected · RTT %1$d ms · %2$d/%3$d ACK · %4$d lost</string>
+    <string name="connection_stats">Connected · RTT %1$d ms · %2$d/%3$d ACK · Lost (%4$d)</string>
+    <string name="paired_tv_label">%1$s · %2$s</string>
+    <string name="discovered_tv_label">%1$s · %2$s · %3$s</string>
+    <string name="button_mapping_value">%1$s → %2$s</string>
 </resources>

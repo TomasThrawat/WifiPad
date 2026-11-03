@@ -1,8 +1,6 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
     <string name="app_name">WifiPad Controller</string>
-    <string name="enter_tv_ip">أدخل عنوان IP أو اسم المضيف الخاص بالتلفزيون.</string>
-    <string name="opening_controls">جارٍ فتح أزرار التحكم…</string>
     <string name="open_controller">→ فتح وحدة التحكم</string>
     <string name="settings">الإعدادات</string>
     <string name="settings_title">إعدادات وحدة التحكم</string>
@@ -42,10 +40,9 @@
     <string name="pair_tv_first">اقرن التلفزيون أولًا بمسح رمز QR الظاهر في تطبيق WifiPad Receiver.</string>
     <string name="invalid_pairing_qr">رمز QR ده مش رمز اقتران صالح لـ WifiPad v2.</string>
     <string name="local_network_permission_denied_retry">تم رفض إذن الشبكة المحلية. اسمح به لاكتشاف التلفزيون والاتصال به.</string>
-    <string name="mode_gamepad">يد ألعاب</string>
     <string name="secure_pending">بانتظار الاتصال الآمن</string>
     <string name="connection_disconnected">غير متصل</string>
-<string name="control_profiles">ملفات التحكم</string>
+    <string name="control_profiles">ملفات التحكم</string>
     <string name="profile_fps">ألعاب FPS</string>
     <string name="profile_racing">سباقات</string>
     <string name="profile_platformer">منصات</string>
@@ -61,5 +58,8 @@
     <string name="accessibility_right_stick">العصا اليمنى لتحريك الكاميرا. اسحب لتحريكها واضغط لتفعيل R3.</string>
     <string name="accessibility_dpad">اتجاه لوحة الأسهم %1$s</string>
     <string name="accessibility_button">زر %1$s</string>
-    <string name="connection_stats">متصل · RTT ‏%1$d مللي ثانية · تأكيد %2$d/%3$d · مفقود %4$d</string>
+    <string name="connection_stats">متصل · RTT ‏%1$d مللي ثانية · تأكيد %2$d/%3$d · المفقود (%4$d)</string>
+    <string name="paired_tv_label">%1$s · %2$s</string>
+    <string name="discovered_tv_label">%1$s · %2$s · %3$s</string>
+    <string name="button_mapping_value">%1$s ← %2$s</string>
 </resources>

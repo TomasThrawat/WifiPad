@@ -544,19 +544,13 @@ class MainActivity : AppCompatActivity() {
 
     private fun localIp(): String = try {
         val manager = getSystemService(ConnectivityManager::class.java)
-        val candidates = manager.allNetworks.mapNotNull { network ->
-            val caps = manager.getNetworkCapabilities(network) ?: return@mapNotNull null
-            val priority = when {
-                caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI) -> 0
-                caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_ETHERNET) -> 1
-                else -> 2
-            }
-            val address = manager.getLinkProperties(network)?.linkAddresses
+        val activeNetwork = manager.activeNetwork
+        val address = activeNetwork?.let { network ->
+            manager.getLinkProperties(network)?.linkAddresses
                 ?.map { it.address }?.filterIsInstance<Inet4Address>()
                 ?.firstOrNull { !it.isLoopbackAddress && !it.isLinkLocalAddress }
-            address?.let { priority to it }
         }
-        candidates.minByOrNull { it.first }?.second?.hostAddress ?: "unknown"
+        address?.hostAddress ?: "unknown"
     } catch (_: Exception) { "unknown" }
 
     private fun showPairingQr() {

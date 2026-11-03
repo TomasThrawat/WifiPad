@@ -1,4 +1,5 @@
 package com.wifipad.receiver
+import androidx.core.content.edit
 
 import android.content.Context
 import android.security.keystore.KeyGenParameterSpec
@@ -22,7 +23,9 @@ internal object EncryptedLocalStore {
     fun write(context: Context, name: String, value: String) {
         val cipher = Cipher.getInstance("AES/GCM/NoPadding"); cipher.init(Cipher.ENCRYPT_MODE, key())
         val encrypted = cipher.iv + cipher.doFinal(value.toByteArray(Charsets.UTF_8))
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(name, Base64.encodeToString(encrypted, Base64.NO_WRAP)).apply()
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit {
+            putString(name, Base64.encodeToString(encrypted, Base64.NO_WRAP))
+        }
     }
     private fun key(): SecretKey {
         val store = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }

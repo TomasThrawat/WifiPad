@@ -82,7 +82,7 @@ class SecureProtocolTest {
         resign(badDpad, 51, 9)
         assertNull(SecureProtocol.parseInput(badDpad, id, 42L, 99L, key))
         val badButtons = input(42L, 99L, 8L)
-        resign(badButtons, 27, 0x08.toByte())
+        resign(badButtons, 43, 0x08.toByte())
         assertNull(SecureProtocol.parseInput(badButtons, id, 42L, 99L, key))
     }
 
