@@ -10,7 +10,7 @@ internal class SecureSessionTracker(
 ) {
     enum class InputResult { ACCEPTED, PROMOTED, REJECTED }
 
-    data class Session internal constructor(
+    class Session internal constructor(
         val address: InetAddress,
         val port: Int,
         val clientNonce: Long,

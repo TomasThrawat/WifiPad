@@ -32,7 +32,7 @@ See `PROTOCOL.md` for the complete frame layout and button/axis mapping.
 
 ## No vibration
 
-Neither app provides vibration or haptic feedback. Both Android manifests remove the `android.permission.VIBRATE` permission during manifest merging, and CircleCI checks the final APK permissions so that the permission cannot be reintroduced unnoticed.
+Neither app provides vibration or haptic feedback, and neither app requests the `android.permission.VIBRATE` permission. CircleCI checks each final merged APK manifest and fails the build if any dependency reintroduces that permission.
 
 ## Build and verification
 
