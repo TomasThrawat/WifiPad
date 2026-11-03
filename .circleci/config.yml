@@ -34,7 +34,7 @@ jobs:
             "$HOME/gradle-9.3.1/bin/gradle" --version
 
       - run:
-          name: Verify Android SDK 37
+          name: Verify Android SDK 37.0
           command: |
             set -euo pipefail
             SDK_ROOT="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
@@ -57,15 +57,15 @@ jobs:
             "$ANDROID_CLI" --version
             "$ANDROID_CLI" --sdk="$SDK_ROOT" sdk list --all --canary | tee /tmp/android-sdk-packages.txt
             echo "=== Android 17 and Build Tools 37 package entries ==="
-            grep -Ei "Cinnamon Bun|android-37|build-tools/37" /tmp/android-sdk-packages.txt || true
+            grep -Ei "platforms/android-37\.0|build-tools/37" /tmp/android-sdk-packages.txt || true
 
             set +o pipefail
             yes | "$ANDROID_CLI" --sdk="$SDK_ROOT" sdk install build-tools/36.0.0 ndk/28.2.13676358
-            yes | "$ANDROID_CLI" --sdk="$SDK_ROOT" sdk install --canary platforms/android-37
+            yes | "$ANDROID_CLI" --sdk="$SDK_ROOT" sdk install platforms/android-37.0
             set -o pipefail
 
             echo "export PATH=$SDK_ROOT/cmdline-tools/latest/bin:$PATH" >> "$BASH_ENV"
-            test -d "$SDK_ROOT/platforms/android-37"
+            test -f "$SDK_ROOT/platforms/android-37.0/android.jar"
             test -d "$SDK_ROOT/build-tools/36.0.0"
             test -d "$SDK_ROOT/ndk/28.2.13676358"
 
