@@ -12,7 +12,7 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
 
-class UdpSender(
+internal class UdpSender(
     private val state: GamepadState,
     private val pairing: TvPairing,
     private val hz: Int = 60
