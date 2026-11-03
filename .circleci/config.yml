@@ -55,10 +55,13 @@ jobs:
             fi
             echo "Android CLI: $ANDROID_CLI"
             "$ANDROID_CLI" --version
+            "$ANDROID_CLI" --sdk="$SDK_ROOT" sdk list --all --canary | tee /tmp/android-sdk-packages.txt
+            echo "=== Android 17 and Build Tools 37 package entries ==="
+            grep -Ei "Cinnamon Bun|android-37|build-tools/37" /tmp/android-sdk-packages.txt || true
 
             set +o pipefail
             yes | "$ANDROID_CLI" --sdk="$SDK_ROOT" sdk install build-tools/36.0.0 ndk/28.2.13676358
-            yes | "$ANDROID_CLI" --sdk="$SDK_ROOT" sdk install --beta platforms/android-37
+            yes | "$ANDROID_CLI" --sdk="$SDK_ROOT" sdk install --canary platforms/android-37
             set -o pipefail
 
             echo "export PATH=$SDK_ROOT/cmdline-tools/latest/bin:$PATH" >> "$BASH_ENV"
