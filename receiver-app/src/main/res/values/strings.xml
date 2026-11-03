@@ -1,3 +1,4 @@
+<?xml version='1.0' encoding='utf-8'?>
 <resources>
     <string name="app_name">WifiPad Receiver</string>
     <string name="start_receiver">Start receiver</string>
@@ -8,4 +9,33 @@
     <string name="local_network_permission_denied_retry">Local network permission was denied. Press Start to try again.</string>
     <string name="local_network_permission_settings_message">Enable local network access in WifiPad Receiver app permissions, then return and press Start.</string>
     <string name="local_network_permission_open_settings">Open app settings</string>
+    <string name="receiver_title_stopped">Receiver stopped</string>
+    <string name="receiver_title_active">Receiver active</string>
+    <string name="receiver_status_listening">LISTENING</string>
+    <string name="receiver_status_offline">OFFLINE</string>
+    <string name="receiver_metric_address">TV address</string>
+    <string name="receiver_metric_address_checking">Checking network…</string>
+    <string name="receiver_metric_packets">Packets received</string>
+    <string name="receiver_metric_rate">Input packets / sec</string>
+    <string name="receiver_metric_rejected">Rejected / invalid</string>
+    <string name="receiver_metric_lost">Sequence gaps</string>
+    <string name="receiver_metric_phone">Paired phone</string>
+    <string name="receiver_phone_none">Not connected</string>
+    <string name="receiver_shizuku_offline">Shizuku is not connected.</string>
+    <string name="receiver_shizuku_granted">Shizuku connected and permission granted.</string>
+    <string name="receiver_shizuku_required">Shizuku connected; permission required.</string>
+    <string name="receiver_pairing_qr">Show secure pairing QR</string>
+    <string name="receiver_pairing_title">Secure WifiPad pairing</string>
+    <string name="receiver_pairing_scan">Scan this code from WifiPad Controller while both devices are on the same network.</string>
+    <string name="receiver_pairing_note">Only the paired phone can send accepted controller packets. Rotating the code revokes the previous pairing.</string>
+    <string name="receiver_pairing_rotate">Rotate pairing key</string>
+    <string name="receiver_no_network">No Wi-Fi or Ethernet IPv4 address is available.</string>
+    <string name="receiver_header_eyebrow">ANDROID TV RECEIVER</string>
+    <string name="receiver_header_subtitle">Receive authenticated controller input over your local network.</string>
+    <string name="receiver_shizuku_note">Starting requires Shizuku permission to create the virtual gamepad.</string>
+    <string name="receiver_service_disconnected">Receiver service disconnected.</string>
+    <string name="receiver_metric_age">Last packet age</string>
+    <string name="receiver_packet_age">%1$d ms ago</string>
+    <string name="receiver_input_test">Buttons: %1$s · LX/LY: %2$d/%3$d · RX/RY: %4$d/%5$d · L2/R2: %6$d/%7$d · D-pad: %8$d</string>
+    <string name="receiver_pairing_restart_failed">The pairing key changed, but the receiver could not restart. Press Start to retry.</string>
 </resources>

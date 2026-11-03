@@ -1,6 +1,8 @@
 package com.wifipad.controller
 
 import android.os.Bundle
+import android.content.Intent
+import androidx.activity.result.contract.ActivityResultContracts
 import android.view.Gravity
 import android.widget.FrameLayout
 import android.widget.LinearLayout
@@ -30,6 +32,16 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var sensitivitySlider: Slider
     private lateinit var sensitivityValue: MaterialTextView
     private var selectedGroup: ControlGroup = ControlGroup.STICK
+    private val importProfileLauncher = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            val raw = runCatching { contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } }.getOrNull()
+            if (raw != null && GamepadProfileStore.import(this, raw)) {
+                preview.reloadSavedSettings()
+                selectGroup(selectedGroup)
+                Toast.makeText(this, getString(R.string.profile_imported), Toast.LENGTH_SHORT).show()
+            } else Toast.makeText(this, getString(R.string.profile_invalid), Toast.LENGTH_LONG).show()
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -79,10 +91,50 @@ class SettingsActivity : AppCompatActivity() {
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply {
-                bottomMargin = dp(14)
-            }
+            ).apply { bottomMargin = dp(12) }
         )
+
+        val profileTitle = MaterialTextView(this).apply {
+            text = getString(R.string.control_profiles)
+            setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_TitleMedium)
+        }
+        content.addView(profileTitle)
+        val profileRow = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
+        GamepadProfileStore.profiles.forEach { profile ->
+            val button = MaterialButton(this).apply {
+                text = when (profile.id) { "fps" -> getString(R.string.profile_fps); "racing" -> getString(R.string.profile_racing); "platformer" -> getString(R.string.profile_platformer); else -> getString(R.string.profile_custom) }
+                isAllCaps = false
+                cornerRadius = dp(14)
+                setOnClickListener {
+                    preview.applyChanges()
+                    GamepadProfileStore.activate(this@SettingsActivity, profile.id)
+                    preview.reloadSavedSettings()
+                    selectGroup(ControlGroup.STICK)
+                }
+            }
+            profileRow.addView(button, LinearLayout.LayoutParams(0, dp(44), 1f).apply {
+                marginEnd = dp(4); marginStart = dp(4)
+            })
+        }
+        content.addView(profileRow, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(52)))
+        val transferRow = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
+        val exportButton = MaterialButton(this).apply {
+            text = getString(R.string.export_json); isAllCaps = false; cornerRadius = dp(14)
+            setOnClickListener {
+                val intent = Intent(Intent.ACTION_SEND).apply {
+                    type = "application/json"
+                    putExtra(Intent.EXTRA_TEXT, GamepadProfileStore.export(this@SettingsActivity))
+                }
+                startActivity(Intent.createChooser(intent, getString(R.string.export_profile_chooser)))
+            }
+        }
+        val importButton = MaterialButton(this).apply {
+            text = getString(R.string.import_json); isAllCaps = false; cornerRadius = dp(14)
+            setOnClickListener { importProfileLauncher.launch(arrayOf("application/json", "text/json", "text/plain")) }
+        }
+        transferRow.addView(exportButton, LinearLayout.LayoutParams(0, dp(46), 1f).apply { marginEnd = dp(5) })
+        transferRow.addView(importButton, LinearLayout.LayoutParams(0, dp(46), 1f).apply { marginStart = dp(5) })
+        content.addView(transferRow)
 
         val actionRow = LinearLayout(this).apply {
             gravity = Gravity.CENTER_VERTICAL
@@ -396,6 +448,44 @@ class SettingsActivity : AppCompatActivity() {
             LinearLayout.LayoutParams.WRAP_CONTENT
         )
         content.addView(editorCard)
+
+        val mappingTitle = MaterialTextView(this).apply {
+            text = getString(R.string.face_button_mapping)
+            setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_TitleMedium)
+        }
+        content.addView(mappingTitle, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+            topMargin = dp(18); bottomMargin = dp(6)
+        })
+        val mappingGrid = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        ButtonMappingStore.positions.chunked(3).forEach { rowItems ->
+            val mappingRow = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
+            rowItems.forEach { position ->
+                val button = MaterialButton(this).apply {
+                    isAllCaps = false
+                    cornerRadius = dp(14)
+                    fun refresh() { text = "$position → ${ButtonMappingStore.get(this@SettingsActivity, position)}" }
+                    refresh()
+                    setOnClickListener {
+                        val options = ButtonMappingStore.positions.toTypedArray()
+                        val current = ButtonMappingStore.get(this@SettingsActivity, position)
+                        val checked = options.indexOf(current).coerceAtLeast(0)
+                        android.app.AlertDialog.Builder(this@SettingsActivity)
+                            .setTitle(getString(R.string.map_position_to, position))
+                            .setSingleChoiceItems(options, checked) { dialog, which ->
+                                ButtonMappingStore.set(this@SettingsActivity, position, options[which])
+                                refresh()
+                                preview.reloadSavedSettings()
+                                dialog.dismiss()
+                            }.setNegativeButton(android.R.string.cancel, null).show()
+                    }
+                }
+                mappingRow.addView(button, LinearLayout.LayoutParams(0, dp(44), 1f).apply { marginEnd = dp(4); marginStart = dp(4) })
+            }
+            repeat(3 - rowItems.size) { mappingRow.addView(LinearLayout(this), LinearLayout.LayoutParams(0, dp(44), 1f)) }
+            mappingGrid.addView(mappingRow, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(48)))
+        }
+        content.addView(mappingGrid)
+
 
         scroll.addView(content)
         root.addView(

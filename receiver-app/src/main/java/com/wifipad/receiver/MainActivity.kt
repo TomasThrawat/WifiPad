@@ -15,6 +15,7 @@ import android.os.RemoteException
 import android.view.Gravity
 import android.view.View
 import android.widget.FrameLayout
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import androidx.appcompat.app.AppCompatActivity
@@ -60,6 +61,14 @@ class MainActivity : AppCompatActivity() {
     private lateinit var messageView: MaterialTextView
     private lateinit var startButton: MaterialButton
     private lateinit var stopButton: MaterialButton
+    private lateinit var pairingButton: MaterialButton
+    private lateinit var rateValue: MaterialTextView
+    private lateinit var rejectedValue: MaterialTextView
+    private lateinit var lostValue: MaterialTextView
+    private lateinit var phoneValue: MaterialTextView
+    private lateinit var ageValue: MaterialTextView
+    private lateinit var inputTestValue: MaterialTextView
+    private val nsdAdvertiser by lazy { TvNsdAdvertiser(this) }
 
     private val userServiceArgs = Shizuku.UserServiceArgs(
         ComponentName(BuildConfig.APPLICATION_ID, GamepadUserService::class.java.name)
@@ -81,8 +90,11 @@ class MainActivity : AppCompatActivity() {
                 var error: String? = null
                 try {
                     val current = service ?: throw IllegalStateException("Receiver service unavailable.")
-                    if (!current.start(port)) {
+                    val pairing = PairingStore.getOrCreate(this@MainActivity)
+                    if (!current.start(port, pairing.controllerId, pairing.secret)) {
                         error = current.lastError().ifBlank { "The receiver could not start." }
+                    } else {
+                        nsdAdvertiser.start(pairing.tvId, port)
                     }
                 } catch (failure: Exception) {
                     error = failure.message ?: "The receiver service stopped."
@@ -97,6 +109,7 @@ class MainActivity : AppCompatActivity() {
         override fun onServiceDisconnected(name: ComponentName) {
             service = null
             isBinding = false
+            nsdAdvertiser.stop()
             refreshStatus()
         }
 
@@ -130,6 +143,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(screen)
         screen.applySystemBarInsets()
         refreshStatus()
+        startButton.requestFocus()
     }
 
     override fun onResume() {
@@ -167,9 +181,9 @@ class MainActivity : AppCompatActivity() {
             setPadding(dp(18), dp(18), dp(18), dp(18))
         }
         val header = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
-        statusTitle = label("Receiver stopped", 20f, WHITE, true)
+        statusTitle = label(getString(R.string.receiver_title_stopped), 20f, WHITE, true)
         header.addView(statusTitle, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-        statusPill = label("OFFLINE", 10f, MUTED, true).apply {
+        statusPill = label(getString(R.string.receiver_status_offline), 10f, MUTED, true).apply {
             letterSpacing = 0.1f
             gravity = Gravity.CENTER
             setPadding(dp(11), dp(7), dp(11), dp(7))
@@ -179,17 +193,31 @@ class MainActivity : AppCompatActivity() {
         body.addView(header)
 
         addSpace(body, 20)
-        addressValue = addMetric(body, "TV address", "Checking network…")
+        addressValue = addMetric(body, getString(R.string.receiver_metric_address), getString(R.string.receiver_metric_address_checking))
         addSpace(body, 14)
         portValue = addMetric(body, "UDP port", port.toString())
         addSpace(body, 14)
-        packetsValue = addMetric(body, "Packets received", "0")
+        packetsValue = addMetric(body, getString(R.string.receiver_metric_packets), "0")
+        addSpace(body, 12)
+        rateValue = addMetric(body, getString(R.string.receiver_metric_rate), "0")
+        addSpace(body, 12)
+        rejectedValue = addMetric(body, getString(R.string.receiver_metric_rejected), "0")
+        addSpace(body, 12)
+        lostValue = addMetric(body, getString(R.string.receiver_metric_lost), "0")
+        addSpace(body, 12)
+        phoneValue = addMetric(body, getString(R.string.receiver_metric_phone), getString(R.string.receiver_phone_none))
+        addSpace(body, 12)
+        ageValue = addMetric(body, getString(R.string.receiver_metric_age), "—")
+        addSpace(body, 12)
+        inputTestValue = label("Buttons: — · LX/LY: 0/0 · RX/RY: 0/0 · L2/R2: 0/0 · D-pad: 0", 12f, WHITE)
+        inputTestValue.contentDescription = "Live input test values for buttons, both analog sticks, both triggers and directional pad"
+        body.addView(inputTestValue)
         addSpace(body, 18)
         val divider = View(this).apply { setBackgroundColor(LINE) }
         body.addView(divider, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(1)))
         addSpace(body, 16)
 
-        shizukuInfo = label("Shizuku is not connected.", 12f, MUTED)
+        shizukuInfo = label(getString(R.string.receiver_shizuku_offline), 12f, MUTED)
         body.addView(shizukuInfo)
         receiverError = label("", 13f, ERROR).apply { visibility = View.GONE }
         addSpace(body, 10)
@@ -230,13 +258,33 @@ class MainActivity : AppCompatActivity() {
         }
         actions.addView(stopButton, LinearLayout.LayoutParams(0, dp(54), 1f))
         content.addView(actions)
+        startButton.setOnFocusChangeListener { view, focused ->
+            (view as MaterialButton).strokeWidth = if (focused) dp(3) else 0
+            view.alpha = if (focused) 1f else view.alpha
+        }
+        stopButton.setOnFocusChangeListener { view, focused ->
+            (view as MaterialButton).strokeWidth = if (focused) dp(3) else dp(1)
+        }
+
+        pairingButton = MaterialButton(this).apply {
+            text = getString(R.string.receiver_pairing_qr)
+            isAllCaps = false
+            cornerRadius = dp(16)
+            setOnClickListener { showPairingQr() }
+        }
+        pairingButton.setOnFocusChangeListener { view, focused ->
+            (view as MaterialButton).strokeWidth = if (focused) dp(3) else 0
+        }
+        content.addView(pairingButton, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, dp(52)
+        ).apply { topMargin = dp(12) })
 
         addSpace(content, 18)
         val note = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.TOP }
         note.addView(label("◈", 18f, MUTED))
         addSpaceHorizontal(note, 10)
         note.addView(label(
-            "Starting requires Shizuku permission to create the virtual gamepad.",
+            getString(R.string.receiver_shizuku_note),
             12f,
             MUTED
         ))
@@ -262,11 +310,11 @@ class MainActivity : AppCompatActivity() {
         }, FrameLayout.LayoutParams(dp(58), dp(58)))
         header.addView(iconCard, LinearLayout.LayoutParams(dp(58), dp(58)))
         addSpace(header, 22)
-        header.addView(label("ANDROID TV RECEIVER", 11f, MUTED, true).apply { letterSpacing = 0.16f })
+        header.addView(label(getString(R.string.receiver_header_eyebrow), 11f, MUTED, true).apply { letterSpacing = 0.16f })
         addSpace(header, 7)
         header.addView(label("WifiPad", 36f, WHITE, true).apply { letterSpacing = -0.035f })
         addSpace(header, 7)
-        header.addView(label("Receive controller input over your local network.", 14f, MUTED))
+        header.addView(label(getString(R.string.receiver_header_subtitle), 14f, MUTED))
         return header
     }
 
@@ -282,18 +330,24 @@ class MainActivity : AppCompatActivity() {
     private fun refreshStatus() {
         if (!::statusTitle.isInitialized) return
         val snapshot = statusSnapshot()
-        statusTitle.text = if (snapshot.running) "Receiver active" else "Receiver stopped"
-        statusPill.text = if (snapshot.running) "LISTENING" else "OFFLINE"
+        statusTitle.text = if (snapshot.running) getString(R.string.receiver_title_active) else getString(R.string.receiver_title_stopped)
+        statusPill.text = if (snapshot.running) getString(R.string.receiver_status_listening) else getString(R.string.receiver_status_offline)
         statusPill.setTextColor(if (snapshot.running) GREEN else MUTED)
         statusPill.background = if (snapshot.running) rounded(GREEN_PANEL, GREEN_LINE, 40)
             else rounded(RAISED, LINE, 40)
         addressValue.text = snapshot.address
         portValue.text = NumberFormat.getIntegerInstance(Locale.getDefault()).format(snapshot.port)
         packetsValue.text = NumberFormat.getIntegerInstance(Locale.getDefault()).format(snapshot.packets)
+        rateValue.text = NumberFormat.getIntegerInstance(Locale.getDefault()).format(snapshot.rate)
+        rejectedValue.text = NumberFormat.getIntegerInstance(Locale.getDefault()).format(snapshot.rejected)
+        lostValue.text = NumberFormat.getIntegerInstance(Locale.getDefault()).format(snapshot.lost)
+        phoneValue.text = snapshot.phone.ifBlank { getString(R.string.receiver_phone_none) }
+        ageValue.text = if (snapshot.ageMs <= 0L) "—" else getString(R.string.receiver_packet_age, snapshot.ageMs)
+        inputTestValue.text = snapshot.inputTest
         shizukuInfo.text = when {
-            !snapshot.shizukuConnected -> "Shizuku is not connected."
-            snapshot.permissionGranted -> "Shizuku connected and permission granted."
-            else -> "Shizuku connected; permission required."
+            !snapshot.shizukuConnected -> getString(R.string.receiver_shizuku_offline)
+            snapshot.permissionGranted -> getString(R.string.receiver_shizuku_granted)
+            else -> getString(R.string.receiver_shizuku_required)
         }
         receiverError.text = snapshot.lastError
         receiverError.visibility = if (snapshot.lastError.isBlank()) View.GONE else View.VISIBLE
@@ -310,28 +364,54 @@ class MainActivity : AppCompatActivity() {
         val packets: Long,
         val lastError: String,
         val shizukuConnected: Boolean,
-        val permissionGranted: Boolean
+        val permissionGranted: Boolean,
+        val rate: Long,
+        val rejected: Long,
+        val lost: Long,
+        val phone: String,
+        val ageMs: Long,
+        val inputTest: String
     )
 
     private fun statusSnapshot(): Snapshot {
         var running = false
         var packets = 0L
         var lastError = ""
+        var rate = 0L
+        var rejectedCount = 0L
+        var lostCount = 0L
+        var phone = getString(R.string.receiver_phone_none)
+        var ageMs = 0L
+        var inputTest = "Buttons: — · LX/LY: 0/0 · RX/RY: 0/0 · L2/R2: 0/0 · D-pad: 0"
         try {
             service?.let {
                 running = it.isRunning()
                 packets = it.packetsReceived()
+                rate = it.packetsPerSecond()
+                rejectedCount = it.rejectedPackets()
+                lostCount = it.lostPackets()
+                phone = it.lastRemoteHost().ifBlank { getString(R.string.receiver_phone_none) }
+                ageMs = it.lastPacketTimeMs()
+                val buttons = it.currentButtons()
+                val names = listOf(
+                    ButtonBit.A to "A", ButtonBit.B to "B", ButtonBit.X to "X", ButtonBit.Y to "Y",
+                    ButtonBit.L1 to "L1", ButtonBit.R1 to "R1", ButtonBit.L3 to "L3", ButtonBit.R3 to "R3",
+                    ButtonBit.SELECT to "Select", ButtonBit.START to "Start", ButtonBit.MODE to "Mode"
+                ).filter { (bit, _) -> buttons and bit != 0 }.joinToString(", ") { it.second }.ifBlank { "—" }
+                inputTest = getString(R.string.receiver_input_test, names, it.currentLeftX(), it.currentLeftY(),
+                    it.currentRightX(), it.currentRightY(), it.currentLeftTrigger(), it.currentRightTrigger(), it.currentDpad())
                 lastError = it.lastError()
             }
         } catch (_: RemoteException) {
             service = null
-            lastError = "Receiver service disconnected."
+            lastError = getString(R.string.receiver_service_disconnected)
         }
         val connected = try { Shizuku.pingBinder() } catch (_: Exception) { false }
         val permission = try {
             connected && Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED
         } catch (_: Exception) { false }
-        return Snapshot(running, localIp(), port, packets, lastError, connected, permission)
+        return Snapshot(running, localIp(), port, packets, lastError, connected, permission,
+            rate, rejectedCount, lostCount, phone, ageMs, inputTest)
     }
 
     private fun startReceiver() {
@@ -450,6 +530,7 @@ class MainActivity : AppCompatActivity() {
         refreshStatus()
         try {
             service?.stop()
+            nsdAdvertiser.stop()
             messageView.visibility = View.GONE
         } catch (error: RemoteException) {
             service = null
@@ -463,21 +544,78 @@ class MainActivity : AppCompatActivity() {
 
     private fun localIp(): String = try {
         val manager = getSystemService(ConnectivityManager::class.java)
-        val network = manager.activeNetwork
-        network?.let(manager::getLinkProperties)
-            ?.linkAddresses
-            ?.asSequence()
-            ?.map { it.address }
-            ?.filterIsInstance<Inet4Address>()
-            ?.firstOrNull { !it.isLoopbackAddress }
-            ?.hostAddress ?: "unknown"
-    } catch (_: Exception) {
-        "unknown"
+        val candidates = manager.allNetworks.mapNotNull { network ->
+            val caps = manager.getNetworkCapabilities(network) ?: return@mapNotNull null
+            val priority = when {
+                caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI) -> 0
+                caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_ETHERNET) -> 1
+                else -> 2
+            }
+            val address = manager.getLinkProperties(network)?.linkAddresses
+                ?.map { it.address }?.filterIsInstance<Inet4Address>()
+                ?.firstOrNull { !it.isLoopbackAddress && !it.isLinkLocalAddress }
+            address?.let { priority to it }
+        }
+        candidates.minByOrNull { it.first }?.second?.hostAddress ?: "unknown"
+    } catch (_: Exception) { "unknown" }
+
+    private fun showPairingQr() {
+        val pairing = PairingStore.getOrCreate(this)
+        fun render(current: ReceiverPairing) {
+            val host = localIp()
+            if (host == "unknown") {
+                messageView.text = getString(R.string.receiver_no_network)
+                messageView.visibility = View.VISIBLE
+                return
+            }
+            val payload = current.qrPayload(host, port, android.os.Build.MODEL ?: "Android TV")
+            val image = ImageView(this).apply {
+                setImageBitmap(QrCodeBitmap.create(payload))
+                contentDescription = "WifiPad secure pairing QR code"
+                adjustViewBounds = true
+                setPadding(dp(12), dp(12), dp(12), dp(12))
+                setBackgroundColor(Color.WHITE)
+            }
+            val body = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(dp(20), dp(12), dp(20), dp(12))
+                addView(image, LinearLayout.LayoutParams(dp(260), dp(260)).apply { gravity = Gravity.CENTER })
+                addView(label(getString(R.string.receiver_pairing_scan), 13f, WHITE))
+                addSpace(this, 8)
+                addView(label(getString(R.string.receiver_pairing_note), 12f, MUTED))
+            }
+            val dialog = android.app.AlertDialog.Builder(this)
+                .setTitle(R.string.receiver_pairing_title)
+                .setView(body)
+                .setNeutralButton(R.string.receiver_pairing_rotate, null)
+                .setNegativeButton(android.R.string.cancel, null)
+                .create()
+            dialog.setOnShowListener {
+                dialog.getButton(android.app.AlertDialog.BUTTON_NEUTRAL).setOnClickListener {
+                    val rotated = PairingStore.rotate(this)
+                    nsdAdvertiser.stop()
+                    val restarted = runCatching {
+                        service?.stop()
+                        service?.start(port, rotated.controllerId, rotated.secret) == true
+                    }.getOrDefault(false)
+                    if (restarted) nsdAdvertiser.start(rotated.tvId, port)
+                    else {
+                        messageView.text = getString(R.string.receiver_pairing_restart_failed)
+                        messageView.visibility = View.VISIBLE
+                    }
+                    dialog.dismiss()
+                    render(rotated)
+                }
+            }
+            dialog.show()
+        }
+        render(pairing)
     }
 
     override fun onDestroy() {
         handler.removeCallbacks(refreshRunnable)
         Shizuku.removeRequestPermissionResultListener(permissionListener)
+        nsdAdvertiser.stop()
         pendingStart = null
         super.onDestroy()
     }

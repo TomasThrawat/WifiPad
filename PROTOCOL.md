@@ -1,44 +1,70 @@
-# WifiPad wire protocol
+# WifiPad secure wire protocol
 
-UDP, 11 bytes per packet, sent at a fixed ~60 Hz regardless of whether
-anything changed (simpler than delta-encoding, and cheap on a LAN).
+## Version 2 (current)
 
-| Offset | Field         | Type   | Range / notes                                    |
-|-------:|---------------|--------|---------------------------------------------------|
-| 0      | magic         | byte   | always `0x57` ('W')                                |
-| 1      | version       | byte   | `1`                                                 |
-| 2–3    | buttons       | uint16 | little-endian bitmask, see below                   |
-| 4      | leftX         | int8   | -127..127, left stick horizontal                    |
-| 5      | leftY         | int8   | -127..127, left stick vertical                      |
-| 6      | rightX        | int8   | -127..127, right stick horizontal                   |
-| 7      | rightY        | int8   | -127..127, right stick vertical                     |
-| 8      | leftTrigger   | uint8  | 0..255, L2; mapped to AOSP Xbox keylayout ABS_Z / LTRIGGER |
-| 9      | rightTrigger  | uint8  | 0..255, R2; mapped to AOSP Xbox keylayout ABS_RZ / RTRIGGER |
-| 10     | dpad          | uint8  | 0=none 1=up 2=up-right 3=right 4=down-right 5=down 6=down-left 7=left 8=up-left |
+WifiPad v2 uses UDP on port `27191`, a persistent pairing secret, HMAC-SHA256
+truncated to 128 bits, a fresh two-nonce session handshake, monotonically
+increasing sequence numbers, and authenticated acknowledgements. The receiver
+accepts input only from the paired controller ID and the source address/port
+that completed the current handshake. Replayed, stale, unsigned, malformed,
+or out-of-session frames are rejected. The receiver releases every virtual
+input after the existing 750 ms watchdog timeout.
 
-## Button bitmask (byte 2 = bits 0–7, byte 3 = bits 8–10)
+The 256-bit pairing secret is stored encrypted using Android Keystore AES-GCM
+on both devices. The TV displays a QR code containing the TV ID, controller ID,
+secret, receiver address and UDP port. Rotating the pairing key invalidates
+the earlier controller identity and key. Show the QR only while pairing a
+trusted phone.
 
-| Bit | Button            |
-|----:|-------------------|
-| 0   | A (Cross)         |
-| 1   | B (Circle)        |
-| 2   | X (Square)        |
-| 3   | Y (Triangle)      |
-| 4   | L1                |
-| 5   | R1                |
-| 6   | L3 (left click)   |
-| 7   | R3 (right-stick click) |
-| 8   | Select / Share    |
-| 9   | Start / Options   |
-| 10  | Mode / PS button  |
+### Frame format
 
-The controller emits cardinal and diagonal D-pad codes when directions are
-pressed simultaneously. The receiver validates D-pad values in the range 0..8.
+All multibyte integers are big-endian. Every frame starts with `0x57`, version
+`2`, a message type, and ends with a 16-byte HMAC tag over the preceding bytes.
 
-The receiver accepts only exact 11-byte v1 packets with the correct magic and
-version, button bits within 0x7ff, stick values in -127..127, and D-pad values
-in 0..8. Older v1 receivers ignore bytes 6–7, so older installations remain
-compatible but cannot use the right stick. The receiver identifies as AOSP's
-Xbox 360 controller (VID 0x045e, PID 0x028e): left-stick axes use ABS_X/ABS_Y,
-right-stick axes use Linux ABS_RX/ABS_RY (keylayout names Z/RZ), and L2/R2 use
-Linux ABS_Z/ABS_RZ (keylayout names LTRIGGER/RTRIGGER). L3/R3 use BTN_THUMBL/BTN_THUMBR.
+| Type | Value | Total bytes | Authenticated fields |
+|---|---:|---:|---|
+| HELLO | 1 | 43 | 16-byte controller ID, 64-bit client nonce |
+| WELCOME | 2 | 51 | controller ID, echoed client nonce, fresh 64-bit server nonce |
+| INPUT | 3 | 68 | controller ID, both nonces, 64-bit sequence, 9-byte gamepad payload |
+| ACK | 4 | 59 | controller ID, both nonces, acknowledged sequence |
+
+### 9-byte gamepad payload
+
+| Offset | Field | Type | Range |
+|---:|---|---|---|
+| 0–1 | buttons | uint16 | bits 0–10; mapping below |
+| 2 | leftX | int8 | -127..127 |
+| 3 | leftY | int8 | -127..127 |
+| 4 | rightX | int8 | -127..127 |
+| 5 | rightY | int8 | -127..127 |
+| 6 | leftTrigger | uint8 | 0..255 |
+| 7 | rightTrigger | uint8 | 0..255 |
+| 8 | dpad | uint8 | 0=none, 1=N, 2=NE, 3=E, 4=SE, 5=S, 6=SW, 7=W, 8=NW |
+
+### Button bitmask
+
+| Bit | Button |
+|---:|---|
+| 0 | A (Cross) |
+| 1 | B (Circle) |
+| 2 | X (Square) |
+| 3 | Y (Triangle) |
+| 4 | L1 |
+| 5 | R1 |
+| 6 | L3 |
+| 7 | R3 |
+| 8 | Select |
+| 9 | Start |
+| 10 | Mode |
+
+## Compatibility and migration
+
+Version 1 used an unauthenticated 11-byte packet. The current receiver does
+not accept v1 packets because that would restore unauthenticated controller
+input. Both the phone Controller and TV Receiver must be updated to v2 and
+paired using the TV's QR code. Do not mix v1 and v2 applications.
+
+WifiPad is a gamepad-only application: it sends only game buttons, both analog
+sticks, both triggers and the D-pad. The TV creates one virtual Xbox-style
+gamepad through Shizuku/uinput. TV firmware and individual games may map
+controller keys and axes differently.

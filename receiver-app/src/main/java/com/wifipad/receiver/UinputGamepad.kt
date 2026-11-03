@@ -74,6 +74,7 @@ class UinputGamepad(private val out: OutputStream) {
             put("command", "delay")
             put("duration", 300)
         })
+
     }
 
     @Synchronized
@@ -100,7 +101,8 @@ class UinputGamepad(private val out: OutputStream) {
         line.append(",3,16,0,3,17,0")
         line.append(",1,304,0,1,305,0,1,307,0,1,308,0")
         line.append(",1,310,0,1,311,0,1,314,0,1,315,0,1,316,0")
-        line.append(",1,317,0,1,318,0,0,0,0]}")
+        line.append(",1,317,0,1,318,0")
+        line.append(",0,0,0]}")
         line.append('\n')
         writeLine()
     }

@@ -9,6 +9,10 @@ import android.text.InputType
 import android.view.Gravity
 import android.view.WindowManager
 import android.view.inputmethod.EditorInfo
+import androidx.activity.result.ActivityResultLauncher
+import com.journeyapps.barcodescanner.ScanContract
+import com.journeyapps.barcodescanner.ScanOptions
+import org.json.JSONObject
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -36,6 +40,14 @@ class MainActivity : AppCompatActivity() {
     private lateinit var hostInput: TextInputEditText
     private lateinit var connectButton: MaterialButton
     private lateinit var messageView: MaterialTextView
+    private lateinit var discoveryButton: MaterialButton
+    private lateinit var discoveryList: LinearLayout
+    private var selectedTvId: String? = null
+    private var discovery: TvDiscovery? = null
+    private val qrLauncher = registerForActivityResult(ScanContract()) { result ->
+        val contents = result.contents
+        if (!contents.isNullOrBlank()) acceptPairingQr(contents)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -44,6 +56,11 @@ class MainActivity : AppCompatActivity() {
         setContentView(screen)
         screen.applySystemBarInsets()
         hostInput.setText(getSharedPreferences(PREFS, MODE_PRIVATE).getString(PREF_HOST, "").orEmpty())
+        val saved = TvPairingStore.all(this)
+        if (saved.isNotEmpty()) {
+            selectedTvId = saved.first().tvId
+            saved.forEach(::addPairedTvButton)
+        }
     }
 
     private fun createScreen(): android.view.View {
@@ -62,14 +79,14 @@ class MainActivity : AppCompatActivity() {
         }
 
         content.addView(createBrandHeader(
-            "PHONE CONTROLLER",
-            "Use your phone as a wireless game controller.",
+            getString(R.string.phone_controller),
+            getString(R.string.phone_controller_subtitle),
             "⌘"
         ))
         addSpace(content, 44)
-        content.addView(label("Connect to your TV", 25f, WHITE, true))
+        content.addView(label(getString(R.string.connect_tv_title), 25f, WHITE, true))
         addSpace(content, 8)
-        content.addView(label("Enter the receiver address shown on your TV.", 14f, MUTED))
+        content.addView(label(getString(R.string.connect_tv_description), 14f, MUTED))
         addSpace(content, 22)
 
         val panel = card()
@@ -78,7 +95,7 @@ class MainActivity : AppCompatActivity() {
             setPadding(dp(18), dp(18), dp(18), dp(18))
         }
         val inputLayout = TextInputLayout(this).apply {
-            hint = "TV IP address"
+            hint = getString(R.string.tv_ip_hint)
             boxBackgroundMode = TextInputLayout.BOX_BACKGROUND_FILLED
             boxBackgroundColor = RAISED
             setBoxCornerRadii(dp(16).toFloat(), dp(16).toFloat(), dp(16).toFloat(), dp(16).toFloat())
@@ -128,6 +145,34 @@ class MainActivity : AppCompatActivity() {
         panel.addView(panelContent)
         content.addView(panel)
 
+        addSpace(content, 14)
+        val scanButton = MaterialButton(this).apply {
+            text = getString(R.string.scan_tv_qr)
+            isAllCaps = false
+            cornerRadius = dp(16)
+            setOnClickListener {
+                val options = ScanOptions().apply {
+                    setDesiredBarcodeFormats(ScanOptions.QR_CODE)
+                    setPrompt("Scan the QR shown by WifiPad Receiver")
+                    setBeepEnabled(false)
+                    setOrientationLocked(false)
+                }
+                qrLauncher.launch(options)
+            }
+        }
+        content.addView(scanButton, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(52)))
+        addSpace(content, 8)
+        discoveryButton = MaterialButton(this).apply {
+            text = getString(R.string.discover_tvs)
+            isAllCaps = false
+            cornerRadius = dp(16)
+            setOnClickListener { startDiscovery() }
+        }
+        content.addView(discoveryButton, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(52)))
+        discoveryList = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        addSpace(content, 8)
+        content.addView(discoveryList)
+
         addSpace(content, 18)
         val info = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -135,7 +180,7 @@ class MainActivity : AppCompatActivity() {
         }
         info.addView(label("ⓘ", 18f, MUTED))
         addSpaceHorizontal(info, 10)
-        info.addView(label("Connect both devices to the same Wi-Fi network.", 12f, MUTED))
+        info.addView(label(getString(R.string.network_note), 12f, MUTED))
         content.addView(info)
 
         scroll.addView(content)
@@ -144,17 +189,104 @@ class MainActivity : AppCompatActivity() {
 
     private fun connect() {
         val host = hostInput.text?.toString()?.trim().orEmpty()
-        if (host.isBlank()) {
-            messageView.text = getString(R.string.enter_tv_ip)
+        val pairing = selectedTvId?.let { TvPairingStore.get(this, it) }
+            ?: TvPairingStore.all(this).firstOrNull { it.host == host }
+        if (pairing == null) {
+            messageView.text = getString(R.string.pair_tv_first)
             messageView.visibility = android.view.View.VISIBLE
             return
         }
-        getSharedPreferences(PREFS, MODE_PRIVATE).edit { putString(PREF_HOST, host) }
-        connectButton.isEnabled = false
-        connectButton.text = getString(R.string.opening_controls)
-        startActivity(Intent(this, GamepadActivity::class.java).putExtra(GamepadActivity.EXTRA_HOST, host))
-        connectButton.isEnabled = true
-        connectButton.text = getString(R.string.open_controller)
+        startController(pairing.copy(host = host.ifBlank { pairing.host }))
+    }
+
+    private fun acceptPairingQr(raw: String) {
+        val pairing = runCatching {
+            val json = JSONObject(raw)
+            require(json.getString("app") == "WifiPad" && json.getInt("version") == 2)
+            TvPairingStore.fromJson(json) ?: error("invalid pairing")
+        }.getOrNull()
+        if (pairing == null) {
+            messageView.text = getString(R.string.invalid_pairing_qr)
+            messageView.visibility = android.view.View.VISIBLE
+            return
+        }
+        TvPairingStore.save(this, pairing)
+        selectedTvId = pairing.tvId
+        addPairedTvButton(pairing)
+        startController(pairing)
+    }
+
+    private fun startController(pairing: TvPairing) {
+        getSharedPreferences(PREFS, MODE_PRIVATE).edit().putString(PREF_HOST, pairing.host).apply()
+        selectedTvId = pairing.tvId
+        hostInput.setText(pairing.host)
+        startActivity(Intent(this, GamepadActivity::class.java).putExtra(GamepadActivity.EXTRA_TV_ID, pairing.tvId))
+    }
+
+    private fun addPairedTvButton(pairing: TvPairing) {
+        if (!::discoveryList.isInitialized) return
+        val old = (0 until discoveryList.childCount).map { discoveryList.getChildAt(it) }
+            .filterIsInstance<MaterialButton>().firstOrNull { it.tag == pairing.tvId }
+        if (old != null) discoveryList.removeView(old)
+        val button = MaterialButton(this).apply {
+            tag = pairing.tvId
+            text = "${pairing.name}  ·  ${pairing.host}"
+            isAllCaps = false
+            cornerRadius = dp(14)
+            setOnClickListener { startController(pairing) }
+        }
+        discoveryList.addView(button, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(48)).apply { topMargin = dp(6) })
+    }
+
+    private fun startDiscovery() {
+        if (android.os.Build.VERSION.SDK_INT >= 37 &&
+            checkSelfPermission("android.permission.ACCESS_LOCAL_NETWORK") != android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) {
+            requestPermissions(arrayOf("android.permission.ACCESS_LOCAL_NETWORK"), 3703)
+            return
+        }
+        discovery?.stop()
+        discoveryList.removeAllViews()
+        discoveryButton.text = getString(R.string.searching_tvs)
+        discovery = TvDiscovery(this) { device ->
+            runOnUiThread {
+                val paired = TvPairingStore.get(this, device.tvId)
+                if (paired != null) {
+                    val updated = paired.copy(host = device.host, port = device.port, name = device.name)
+                    TvPairingStore.save(this, updated)
+                    addPairedTvButton(updated)
+                } else {
+                    val found = MaterialTextView(this).apply {
+                        text = "${device.name}  ·  ${device.host}  ·  ${getString(R.string.scan_tv_qr)}"
+                        setTextColor(WHITE)
+                        textSize = 13f
+                        setPadding(dp(12), dp(10), dp(12), dp(10))
+                        contentDescription = "${getString(R.string.pair_tv_first)} ${device.name} ${device.host}"
+                    }
+                    discoveryList.addView(found)
+                }
+            }
+        }.also { it.start() }
+        discoveryButton.postDelayed({
+            discovery?.stop()
+            discoveryButton.text = getString(R.string.discover_tvs)
+        }, 12_000L)
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == 3703 && grantResults.firstOrNull() == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            startDiscovery()
+        } else if (requestCode == 3703) {
+            messageView.text = getString(R.string.local_network_permission_denied_retry)
+            messageView.visibility = android.view.View.VISIBLE
+        }
+    }
+
+    override fun onDestroy() {
+        discovery?.stop()
+        discovery = null
+        super.onDestroy()
     }
 
     private fun createBrandHeader(eyebrow: String, subtitle: String, symbol: String): LinearLayout {

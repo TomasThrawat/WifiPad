@@ -30,12 +30,24 @@ data class ControlSettings(
 
 object ControlSettingsStore {
     private const val PREFS = "wifipad_controls"
+    private const val PROFILE_PREFS = "wifipad_profiles"
+    private const val ACTIVE_PROFILE = "active_profile"
+
+    fun activeProfile(context: Context): String = context.getSharedPreferences(PROFILE_PREFS, Context.MODE_PRIVATE)
+        .getString(ACTIVE_PROFILE, "custom") ?: "custom"
+
+    fun activateProfile(context: Context, id: String) {
+        require(id in setOf("fps", "racing", "platformer", "custom"))
+        context.getSharedPreferences(PROFILE_PREFS, Context.MODE_PRIVATE).edit { putString(ACTIVE_PROFILE, id) }
+    }
     private const val MIN_SCALE = 0.60f
     private const val MAX_SCALE = 1.60f
     private const val RIGHT_STICK_VISIBILITY_MIGRATED = "right_stick_visibility_migrated"
 
-    private fun prefs(context: Context) =
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+    private fun prefs(context: Context) = context.getSharedPreferences(
+        if (activeProfile(context) == "custom") PREFS else "${PREFS}_${activeProfile(context)}",
+        Context.MODE_PRIVATE
+    )
 
     fun load(context: Context, group: ControlGroup): ControlSettings {
         val p = prefs(context)

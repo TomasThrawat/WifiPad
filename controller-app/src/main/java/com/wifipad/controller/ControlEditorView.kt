@@ -65,6 +65,10 @@ class ControlEditorView(context: Context) : View(context) {
         loadSavedSettings()
     }
 
+    fun reloadSavedSettings() {
+        loadSavedSettings()
+    }
+
     private fun loadSavedSettings() {
         values.clear()
         ControlGroup.values().forEach { group ->

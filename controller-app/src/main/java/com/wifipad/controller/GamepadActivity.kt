@@ -4,6 +4,8 @@ import android.content.res.ColorStateList
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.Gravity
 import android.view.WindowManager
 import android.widget.FrameLayout
@@ -17,6 +19,7 @@ class GamepadActivity : AppCompatActivity() {
 
     companion object {
         const val EXTRA_HOST = "host"
+        const val EXTRA_TV_ID = "tv_id"
         private const val LOCAL_NETWORK_REQUEST = 3701
         private const val LOCAL_NETWORK_PERMISSION = "android.permission.ACCESS_LOCAL_NETWORK"
     }
@@ -24,17 +27,26 @@ class GamepadActivity : AppCompatActivity() {
     private lateinit var padView: GamepadView
     private lateinit var sender: UdpSender
     private var pendingHost: String? = null
+    private lateinit var connectionInfo: com.google.android.material.textview.MaterialTextView
+    private var activePairing: TvPairing? = null
+    private val reconnectHandler = Handler(Looper.getMainLooper())
+    private var reconnectDiscovery: TvDiscovery? = null
+    private var reconnectDiscoveryRunning = false
+    private var rebuildingSender = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         DynamicColors.applyToActivityIfAvailable(this)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
-        val host = intent.getStringExtra(EXTRA_HOST)?.trim().orEmpty()
-        if (host.isEmpty()) {
+        val tvId = intent.getStringExtra(EXTRA_TV_ID).orEmpty()
+        val pairing = TvPairingStore.get(this, tvId)
+        if (pairing == null) {
             finish()
             return
         }
+        val host = pairing.host
+        activePairing = pairing
 
         padView = GamepadView(this, null)
 
@@ -49,6 +61,12 @@ class GamepadActivity : AppCompatActivity() {
             )
         }
 
+        connectionInfo = com.google.android.material.textview.MaterialTextView(this).apply {
+            text = getString(R.string.secure_pending)
+            setTextColor(android.graphics.Color.WHITE)
+            textSize = 11f
+            gravity = Gravity.CENTER
+        }
         val settingsButton = MaterialButton(this).apply {
             text = getString(R.string.settings)
             isAllCaps = false
@@ -73,6 +91,7 @@ class GamepadActivity : AppCompatActivity() {
             }
         }
 
+        root.addView(connectionInfo, FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, dp(42), Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL))
         root.addView(
             settingsButton,
             FrameLayout.LayoutParams(
@@ -118,15 +137,61 @@ class GamepadActivity : AppCompatActivity() {
     }
 
     private fun startSender(host: String) {
+        rebuildingSender = true
         if (::sender.isInitialized) sender.stop()
-        sender = UdpSender(padView.state)
+        val pairing = activePairing ?: run { finish(); return }
+        val updated = pairing.copy(host = host)
+        activePairing = updated
+        TvPairingStore.save(this, updated)
+        sender = UdpSender(padView.state, updated)
+        sender.onStatus = { stats ->
+            runOnUiThread {
+                connectionInfo.text = if (!stats.connected) getString(R.string.connection_disconnected) else
+                    getString(R.string.connection_stats, stats.rttMs.toInt(), stats.acknowledged.toInt(), stats.sent.toInt(), stats.lost.toInt())
+                if (stats.connected) {
+                    stopReconnectDiscovery()
+                } else if (!rebuildingSender) {
+                    startReconnectDiscovery()
+                }
+            }
+        }
         sender.onError = { message ->
             runOnUiThread {
                 Toast.makeText(this, getString(R.string.status_error, message), Toast.LENGTH_LONG).show()
                 finish()
             }
         }
-        sender.start(host, Protocol.DEFAULT_PORT)
+        sender.start(host, pairing.port)
+        rebuildingSender = false
+    }
+
+
+    private fun startReconnectDiscovery() {
+        if (reconnectDiscoveryRunning || isFinishing || isDestroyed) return
+        val expectedTvId = activePairing?.tvId ?: return
+        reconnectDiscoveryRunning = true
+        reconnectDiscovery = TvDiscovery(this) { device ->
+            if (device.tvId != expectedTvId) return@TvDiscovery
+            runOnUiThread {
+                val pairing = activePairing ?: return@runOnUiThread
+                val changed = pairing.host != device.host || pairing.port != device.port
+                if (changed) {
+                    val updated = pairing.copy(host = device.host, port = device.port, name = device.name)
+                    TvPairingStore.save(this, updated)
+                    activePairing = updated
+                    stopReconnectDiscovery()
+                    startSender(updated.host)
+                }
+            }
+        }.also { it.start() }
+        reconnectHandler.postDelayed({ stopReconnectDiscovery() }, 12_000L)
+    }
+
+    private fun stopReconnectDiscovery() {
+        reconnectHandler.removeCallbacksAndMessages(null)
+        reconnectDiscovery?.stop()
+        reconnectDiscovery = null
+        reconnectDiscoveryRunning = false
     }
 
     @Deprecated("Use the permission result callback")
@@ -165,6 +230,7 @@ class GamepadActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        stopReconnectDiscovery()
         if (::sender.isInitialized) {
             sender.stop()
         }

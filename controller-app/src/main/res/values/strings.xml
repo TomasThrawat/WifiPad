@@ -1,3 +1,4 @@
+<?xml version='1.0' encoding='utf-8'?>
 <resources>
     <string name="app_name">WifiPad Controller</string>
     <string name="enter_tv_ip">Enter the TV IP address or host name.</string>
@@ -29,4 +30,36 @@
     <string name="local_network_permission_settings">Open app settings</string>
     <string name="settings_dead_zone">Stick dead zone</string>
     <string name="settings_sensitivity">Stick sensitivity</string>
+    <string name="phone_controller">PHONE CONTROLLER</string>
+    <string name="phone_controller_subtitle">Use your phone as a wireless game controller.</string>
+    <string name="connect_tv_title">Connect to your TV</string>
+    <string name="connect_tv_description">Enter the receiver address shown on your TV, or scan its pairing QR code.</string>
+    <string name="tv_ip_hint">TV IP address</string>
+    <string name="network_note">Connect both devices to the same Wi-Fi network.</string>
+    <string name="scan_tv_qr">Scan TV pairing QR</string>
+    <string name="discover_tvs">Find TVs on this network</string>
+    <string name="searching_tvs">Searching…</string>
+    <string name="pair_tv_first">Pair this TV by scanning the QR code shown in WifiPad Receiver first.</string>
+    <string name="invalid_pairing_qr">This QR code is not a valid WifiPad v2 pairing code.</string>
+    <string name="local_network_permission_denied_retry">Local network access was denied. Allow it to discover and connect to your TV.</string>
+    <string name="mode_gamepad">Gamepad</string>
+    <string name="secure_pending">Secure connection pending</string>
+    <string name="connection_disconnected">Disconnected</string>
+<string name="control_profiles">Control profiles</string>
+    <string name="profile_fps">FPS</string>
+    <string name="profile_racing">Racing</string>
+    <string name="profile_platformer">Platformer</string>
+    <string name="profile_custom">Custom</string>
+    <string name="export_json">Export JSON</string>
+    <string name="import_json">Import JSON</string>
+    <string name="export_profile_chooser">Export WifiPad profile</string>
+    <string name="profile_imported">Profile imported</string>
+    <string name="profile_invalid">Invalid WifiPad profile JSON</string>
+    <string name="face_button_mapping">Face-button mapping</string>
+    <string name="map_position_to">Map %1$s to</string>
+    <string name="accessibility_left_stick">Left analog stick. Drag to move. Tap to press L3.</string>
+    <string name="accessibility_right_stick">Right analog stick. Drag to move the camera. Tap to press R3.</string>
+    <string name="accessibility_dpad">D-pad %1$s</string>
+    <string name="accessibility_button">%1$s button</string>
+    <string name="connection_stats">Connected · RTT %1$d ms · %2$d/%3$d ACK · %4$d lost</string>
 </resources>

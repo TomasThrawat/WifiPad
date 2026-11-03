@@ -1,0 +1,41 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">WifiPad Receiver</string>
+    <string name="start_receiver">تشغيل المستقبل</string>
+    <string name="stop_receiver">إيقاف المستقبل</string>
+    <string name="local_network_permission_title">مطلوب إذن الشبكة المحلية</string>
+    <string name="local_network_permission_rationale">يجب أن يستقبل WifiPad حزم التحكم من الهاتف عبر الشبكة المحلية. اسمح بالإذن لتشغيل المستقبل.</string>
+    <string name="local_network_permission_retry">حاول مرة أخرى</string>
+    <string name="local_network_permission_denied_retry">تم رفض إذن الشبكة المحلية. اضغط تشغيل للمحاولة مرة أخرى.</string>
+    <string name="local_network_permission_settings_message">فعّل إذن الشبكة المحلية من إعدادات صلاحيات تطبيق WifiPad Receiver ثم ارجع واضغط تشغيل.</string>
+    <string name="local_network_permission_open_settings">فتح إعدادات التطبيق</string>
+    <string name="receiver_title_stopped">المستقبل متوقف</string>
+    <string name="receiver_title_active">المستقبل يعمل</string>
+    <string name="receiver_status_listening">يستقبل الاتصال</string>
+    <string name="receiver_status_offline">غير متصل</string>
+    <string name="receiver_metric_address">عنوان التلفزيون</string>
+    <string name="receiver_metric_address_checking">جارٍ فحص الشبكة…</string>
+    <string name="receiver_metric_packets">الحزم المستلمة</string>
+    <string name="receiver_metric_rate">حزم التحكم في الثانية</string>
+    <string name="receiver_metric_rejected">حزم مرفوضة أو غير صالحة</string>
+    <string name="receiver_metric_lost">فجوات التسلسل</string>
+    <string name="receiver_metric_phone">الهاتف المقترن</string>
+    <string name="receiver_phone_none">غير متصل</string>
+    <string name="receiver_shizuku_offline">Shizuku غير متصل.</string>
+    <string name="receiver_shizuku_granted">Shizuku متصل والإذن ممنوح.</string>
+    <string name="receiver_shizuku_required">Shizuku متصل؛ الإذن مطلوب.</string>
+    <string name="receiver_pairing_qr">عرض رمز الاقتران الآمن</string>
+    <string name="receiver_pairing_title">اقتران WifiPad الآمن</string>
+    <string name="receiver_pairing_scan">امسح الرمز من تطبيق WifiPad Controller مع توصيل الجهازين بالشبكة نفسها.</string>
+    <string name="receiver_pairing_note">الهاتف المقترن فقط يمكنه إرسال حزم تحكم مقبولة. تغيير الرمز يلغي الاقتران السابق.</string>
+    <string name="receiver_pairing_rotate">تغيير مفتاح الاقتران</string>
+    <string name="receiver_no_network">لا يوجد عنوان IPv4 متاح عبر Wi-Fi أو Ethernet.</string>
+    <string name="receiver_header_eyebrow">مستقبل Android TV</string>
+    <string name="receiver_header_subtitle">استقبل مدخلات التحكم الموثّقة عبر الشبكة المحلية.</string>
+    <string name="receiver_shizuku_note">يتطلب التشغيل إذن Shizuku لإنشاء يد التحكم الافتراضية.</string>
+    <string name="receiver_service_disconnected">انقطع اتصال خدمة المستقبل.</string>
+    <string name="receiver_metric_age">عمر آخر حزمة</string>
+    <string name="receiver_packet_age">منذ %1$d مللي ثانية</string>
+    <string name="receiver_input_test">الأزرار: %1$s · العصا اليسرى: %2$d/%3$d · اليمنى: %4$d/%5$d · L2/R2: %6$d/%7$d · الاتجاه: %8$d</string>
+    <string name="receiver_pairing_restart_failed">تم تغيير مفتاح الاقتران لكن تعذر إعادة تشغيل المستقبل. اضغط تشغيل للمحاولة.</string>
+</resources>

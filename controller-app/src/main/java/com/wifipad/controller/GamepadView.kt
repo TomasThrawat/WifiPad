@@ -4,10 +4,16 @@ import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.RectF
+import android.graphics.Rect
+import android.os.Handler
+import android.os.Looper
 import android.util.AttributeSet
 import android.view.MotionEvent
 import android.view.View
 import com.google.android.material.color.MaterialColors
+import androidx.core.view.ViewCompat
+import androidx.core.view.accessibility.AccessibilityNodeInfoCompat
+import androidx.customview.widget.ExploreByTouchHelper
 import kotlin.math.hypot
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -40,6 +46,57 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
     private val stickClickButtons = mutableListOf<Rect2>()
     private val activePointerToRect = mutableMapOf<Int, Rect2>()
     private val settings = mutableMapOf<ControlGroup, ControlSettings>()
+    private data class AccessibilityTarget(val id: Int, val bounds: RectF, val label: String, val bit: Int, val group: ControlGroup)
+    private val accessibilityHandler = Handler(Looper.getMainLooper())
+    private val accessibilityHelper = object : ExploreByTouchHelper(this) {
+        override fun getVirtualViewAt(x: Float, y: Float): Int = accessibilityTargets()
+            .firstOrNull { it.bounds.contains(x, y) }?.id ?: INVALID_ID
+
+        override fun getVisibleVirtualViews(virtualViewIds: MutableList<Int>) {
+            accessibilityTargets().forEach { virtualViewIds.add(it.id) }
+        }
+
+        override fun onPopulateNodeForVirtualView(virtualViewId: Int, node: AccessibilityNodeInfoCompat) {
+            val target = accessibilityTargets().firstOrNull { it.id == virtualViewId }
+            if (target == null) {
+                node.contentDescription = "Controller control"
+                node.setBoundsInParent(Rect(0, 0, 1, 1))
+                return
+            }
+            node.className = android.widget.Button::class.java.name
+            node.text = target.label
+            node.contentDescription = when (target.group) {
+                ControlGroup.STICK -> context.getString(R.string.accessibility_left_stick)
+                ControlGroup.RIGHT_STICK -> context.getString(R.string.accessibility_right_stick)
+                ControlGroup.DPAD -> context.getString(R.string.accessibility_dpad, target.label)
+                else -> context.getString(R.string.accessibility_button, target.label)
+            }
+            node.setBoundsInParent(Rect(
+                target.bounds.left.toInt(), target.bounds.top.toInt(),
+                target.bounds.right.toInt(), target.bounds.bottom.toInt()
+            ))
+            node.isClickable = true
+            node.addAction(AccessibilityNodeInfoCompat.ACTION_CLICK)
+        }
+
+        override fun onPerformActionForVirtualView(virtualViewId: Int, action: Int, arguments: android.os.Bundle?): Boolean {
+            if (action != AccessibilityNodeInfoCompat.ACTION_CLICK) return false
+            val target = accessibilityTargets().firstOrNull { it.id == virtualViewId } ?: return false
+            when (target.group) {
+                ControlGroup.DPAD -> {
+                    val mask = when (target.bit) { 1 -> 1; 2 -> 2; 4 -> 4; 8 -> 8; else -> 0 }
+                    state.dpad = DpadEncoding.fromCardinalMask(mask)
+                    accessibilityHandler.postDelayed({ state.dpad = 0; invalidate() }, 160L)
+                }
+                else -> {
+                    state.setButton(target.bit, true)
+                    accessibilityHandler.postDelayed({ state.setButton(target.bit, false); invalidate() }, 160L)
+                }
+            }
+            invalidate()
+            return true
+        }
+    }
 
     private val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val stickBasePaint = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -78,6 +135,8 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
 
     init {
         isClickable = true
+        importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_YES
+        ViewCompat.setAccessibilityDelegate(this, accessibilityHelper)
         loadSettings()
     }
 
@@ -88,6 +147,7 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
             recalculateLayout(width, height)
         }
         invalidate()
+        accessibilityHelper.invalidateRoot()
     }
 
     private fun loadSettings() {
@@ -122,12 +182,12 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         val leftClickRadius = s * 0.035f * stick.scale
         stickClickButtons += Rect2(
             sq(stickBase.cx + stickBase.r * 0.55f, stickBase.cy + stickBase.r * 0.55f, leftClickRadius),
-            ButtonBit.L3, "L3", true, ControlGroup.STICK
+            ButtonMappingStore.bit(context, "L3"), "L3", true, ControlGroup.STICK
         )
         val rightClickRadius = s * 0.035f * rightStick.scale
         stickClickButtons += Rect2(
             sq(rightStickBase.cx + rightStickBase.r * 0.55f, rightStickBase.cy + rightStickBase.r * 0.55f, rightClickRadius),
-            ButtonBit.R3, "R3", true, ControlGroup.RIGHT_STICK
+            ButtonMappingStore.bit(context, "R3"), "R3", true, ControlGroup.RIGHT_STICK
         )
 
         val dpadButton = s * 0.072f * dpad.scale
@@ -147,10 +207,10 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         val faceCx = w * face.x
         val faceCy = h * face.y
         faceButtons.clear()
-        faceButtons += Rect2(sq(faceCx, faceCy - faceSpacing, faceButton), ButtonBit.Y, "Y", group = ControlGroup.FACE)
-        faceButtons += Rect2(sq(faceCx + faceSpacing, faceCy, faceButton), ButtonBit.B, "B", group = ControlGroup.FACE)
-        faceButtons += Rect2(sq(faceCx, faceCy + faceSpacing, faceButton), ButtonBit.A, "A", group = ControlGroup.FACE)
-        faceButtons += Rect2(sq(faceCx - faceSpacing, faceCy, faceButton), ButtonBit.X, "X", group = ControlGroup.FACE)
+        faceButtons += Rect2(sq(faceCx, faceCy - faceSpacing, faceButton), ButtonMappingStore.bit(context, "Y"), "Y", group = ControlGroup.FACE)
+        faceButtons += Rect2(sq(faceCx + faceSpacing, faceCy, faceButton), ButtonMappingStore.bit(context, "B"), "B", group = ControlGroup.FACE)
+        faceButtons += Rect2(sq(faceCx, faceCy + faceSpacing, faceButton), ButtonMappingStore.bit(context, "A"), "A", group = ControlGroup.FACE)
+        faceButtons += Rect2(sq(faceCx - faceSpacing, faceCy, faceButton), ButtonMappingStore.bit(context, "X"), "X", group = ControlGroup.FACE)
 
         systemButtons.clear()
         val systemButtonWidth = s * 0.145f * system.scale
@@ -159,9 +219,9 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         val systemCx = w * system.x
         val systemCy = h * system.y
         listOf(
-            ButtonBit.SELECT to "SELECT",
-            ButtonBit.MODE to "MODE",
-            ButtonBit.START to "START"
+            ButtonMappingStore.bit(context, "SELECT") to "SELECT",
+            ButtonMappingStore.bit(context, "MODE") to "MODE",
+            ButtonMappingStore.bit(context, "START") to "START"
         ).forEachIndexed { index, (bit, label) ->
             val cx = systemCx + (index - 1) * (systemButtonWidth + systemGap)
             systemButtons += Rect2(
@@ -186,7 +246,7 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
 
         shoulderButtons += Rect2(
             sq(leftX, leftY1, shoulderHalfLeft),
-            ButtonBit.L1,
+            ButtonMappingStore.bit(context, "L1"),
             "L1",
             true,
             ControlGroup.LEFT_SHOULDER
@@ -207,7 +267,7 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
 
         shoulderButtons += Rect2(
             sq(rightX, rightY1, shoulderHalfRight),
-            ButtonBit.R1,
+            ButtonMappingStore.bit(context, "R1"),
             "R1",
             true,
             ControlGroup.RIGHT_SHOULDER
@@ -230,6 +290,38 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         textPaint.textSize = (s * 0.040f).coerceIn(24f, 44f)
         stickIndicatorPaint.color = onPrimaryContainerColor
         stickIndicatorPaint.alpha = 90
+        accessibilityHelper.invalidateRoot()
+    }
+
+    private fun accessibilityTargets(): List<AccessibilityTarget> {
+        val targets = mutableListOf<AccessibilityTarget>()
+        var id = 1
+        fun append(rect: Rect2) {
+            if (settings[rect.group]?.visible == true) {
+                targets += AccessibilityTarget(id++, RectF(rect.r), rect.label, rect.bit, rect.group)
+            }
+        }
+        if (settings[ControlGroup.STICK]?.visible == true) {
+            val click = stickClickButtons.firstOrNull { it.group == ControlGroup.STICK }
+            if (click != null) append(click)
+            val r = stickBase.r * 0.65f
+            targets += AccessibilityTarget(id++, RectF(stickBase.cx-r, stickBase.cy-r, stickBase.cx+r, stickBase.cy+r), "Left stick", ButtonBit.L3, ControlGroup.STICK)
+        }
+        if (settings[ControlGroup.RIGHT_STICK]?.visible == true) {
+            val click = stickClickButtons.firstOrNull { it.group == ControlGroup.RIGHT_STICK }
+            if (click != null) append(click)
+            val r = rightStickBase.r * 0.65f
+            targets += AccessibilityTarget(id++, RectF(rightStickBase.cx-r, rightStickBase.cy-r, rightStickBase.cx+r, rightStickBase.cy+r), "Right stick", ButtonBit.R3, ControlGroup.RIGHT_STICK)
+        }
+        dpadButtons.forEach(::append)
+        faceButtons.forEach(::append)
+        shoulderButtons.forEach(::append)
+        systemButtons.forEach(::append)
+        return targets
+    }
+
+    override fun dispatchHoverEvent(event: MotionEvent): Boolean {
+        return accessibilityHelper.dispatchHoverEvent(event) || super.dispatchHoverEvent(event)
     }
 
     private fun sq(cx: Float, cy: Float, half: Float): RectF =
@@ -237,7 +329,6 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
 
     override fun onDraw(canvas: Canvas) {
         canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), bgPaint)
-
         if (settings.getValue(ControlGroup.SYSTEM).visible) {
             systemButtons.forEach { drawButton(canvas, it) }
         }
@@ -301,6 +392,12 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
     override fun performClick(): Boolean {
         super.performClick()
         return true
+    }
+
+    fun cancelActiveInputs() {
+        resetInputState()
+        invalidate()
+        accessibilityHelper.invalidateRoot()
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
