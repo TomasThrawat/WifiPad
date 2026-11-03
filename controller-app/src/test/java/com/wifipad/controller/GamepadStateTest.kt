@@ -24,8 +24,8 @@ class GamepadStateTest {
         assertEquals(0x04, packet[3].toInt() and 0xFF)
         assertEquals(-127, packet[4].toInt())
         assertEquals(127, packet[5].toInt())
-        assertEquals(0, packet[6].toInt())
-        assertEquals(0, packet[7].toInt())
+        assertEquals(-1, packet[6].toInt())
+        assertEquals(1, packet[7].toInt())
         assertEquals(255, packet[8].toInt() and 0xFF)
         assertEquals(255, packet[9].toInt() and 0xFF)
         assertEquals(8, packet[10].toInt() and 0xFF)
@@ -36,6 +36,8 @@ class GamepadStateTest {
         val state = GamepadState().apply {
             buttons = ButtonBit.B
             leftX = 42
+            rightX = (-64).toByte()
+            rightY = 64
             rightTrigger = 128
         }
         val buffer = ByteArray(Protocol.PACKET_SIZE) { 0x7F }
@@ -44,8 +46,8 @@ class GamepadStateTest {
         assertEquals(Protocol.VERSION, buffer[1])
         assertEquals(0x02, buffer[2].toInt() and 0xFF)
         assertEquals(42, buffer[4].toInt())
-        assertEquals(0, buffer[6].toInt())
-        assertEquals(0, buffer[7].toInt())
+        assertEquals(-64, buffer[6].toInt())
+        assertEquals(64, buffer[7].toInt())
         assertEquals(128, buffer[9].toInt() and 0xFF)
     }
 

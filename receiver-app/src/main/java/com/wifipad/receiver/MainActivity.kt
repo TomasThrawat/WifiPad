@@ -6,6 +6,7 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.net.ConnectivityManager
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.IBinder
@@ -28,6 +29,8 @@ import java.util.Locale
 class MainActivity : AppCompatActivity() {
     companion object {
         private const val REQUEST_CODE = 9001
+        private const val LOCAL_NETWORK_REQUEST = 3702
+        private const val LOCAL_NETWORK_PERMISSION = "android.permission.ACCESS_LOCAL_NETWORK"
         private const val BLACK = Color.BLACK
         private const val PANEL = 0xFF101010.toInt()
         private const val RAISED = 0xFF171717.toInt()
@@ -333,6 +336,23 @@ class MainActivity : AppCompatActivity() {
 
     private fun startReceiver() {
         if (busy) return
+        if (Build.VERSION.SDK_INT >= 37 &&
+            checkSelfPermission(LOCAL_NETWORK_PERMISSION) != PackageManager.PERMISSION_GRANTED
+        ) {
+            if (shouldShowRequestPermissionRationale(LOCAL_NETWORK_PERMISSION)) {
+                android.app.AlertDialog.Builder(this)
+                    .setTitle("Local network access required")
+                    .setMessage("WifiPad must receive controller packets from your phone over the local network. Allow this permission to start the receiver.")
+                    .setPositiveButton("Try again") { _, _ ->
+                        requestPermissions(arrayOf(LOCAL_NETWORK_PERMISSION), LOCAL_NETWORK_REQUEST)
+                    }
+                    .setNegativeButton(android.R.string.cancel, null)
+                    .show()
+            } else {
+                requestPermissions(arrayOf(LOCAL_NETWORK_PERMISSION), LOCAL_NETWORK_REQUEST)
+            }
+            return
+        }
         busy = true
         messageView.visibility = View.GONE
         refreshStatus()
@@ -373,6 +393,32 @@ class MainActivity : AppCompatActivity() {
             else -> Shizuku.requestPermission(REQUEST_CODE)
         }
         refreshStatus()
+    }
+
+
+    @Deprecated("Use the permission result callback")
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode != LOCAL_NETWORK_REQUEST) return
+        if (grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) {
+            startReceiver()
+        } else if (shouldShowRequestPermissionRationale(LOCAL_NETWORK_PERMISSION)) {
+            messageView.text = "Local network permission was denied. Press Start to try again."
+            messageView.visibility = View.VISIBLE
+            refreshStatus()
+        } else {
+            android.app.AlertDialog.Builder(this)
+                .setTitle("Local network access required")
+                .setMessage("Enable local network access in WifiPad Receiver app permissions, then return and press Start.")
+                .setPositiveButton("Open app settings") { _, _ ->
+                    val intent = android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                        data = android.net.Uri.fromParts("package", packageName, null)
+                    }
+                    startActivity(intent)
+                }
+                .setNegativeButton(android.R.string.cancel, null)
+                .show()
+        }
     }
 
     private fun bindService() {

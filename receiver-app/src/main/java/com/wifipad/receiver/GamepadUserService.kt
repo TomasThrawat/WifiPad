@@ -21,6 +21,8 @@ class GamepadUserService : IGamepadService.Stub() {
     private var lastDpad = -1
     private var lastLeftX = 0
     private var lastLeftY = 0
+    private var lastRightX = 0
+    private var lastRightY = 0
     private var lastLeftTrigger = 0
     private var lastRightTrigger = 0
     @Volatile private var lastPacketNanos = 0L
@@ -30,6 +32,10 @@ class GamepadUserService : IGamepadService.Stub() {
         if (running.get()) return true
         error = ""
         lastButtons = 0
+        lastLeftX = 0
+        lastLeftY = 0
+        lastRightX = 0
+        lastRightY = 0
         lastLeftTrigger = 0
         lastRightTrigger = 0
         lastDpad = -1
@@ -145,6 +151,8 @@ class GamepadUserService : IGamepadService.Stub() {
         val buttons = packet.buttons
         val leftX = packet.leftX
         val leftY = packet.leftY
+        val rightX = packet.rightX
+        val rightY = packet.rightY
         val lt = packet.leftTrigger
         val rt = packet.rightTrigger
         val dpad = packet.dpad
@@ -165,6 +173,14 @@ class GamepadUserService : IGamepadService.Stub() {
         if (leftY != lastLeftY) {
             add(UinputGamepad.EV_ABS, UinputGamepad.ABS_Y, leftY)
             lastLeftY = leftY
+        }
+        if (rightX != lastRightX) {
+            add(UinputGamepad.EV_ABS, UinputGamepad.ABS_RX, rightX)
+            lastRightX = rightX
+        }
+        if (rightY != lastRightY) {
+            add(UinputGamepad.EV_ABS, UinputGamepad.ABS_RY, rightY)
+            lastRightY = rightY
         }
         if (lt != lastLeftTrigger) {
             add(UinputGamepad.EV_ABS, UinputGamepad.ABS_Z, lt)
@@ -206,6 +222,8 @@ class GamepadUserService : IGamepadService.Stub() {
         lastDpad = 0
         lastLeftX = 0
         lastLeftY = 0
+        lastRightX = 0
+        lastRightY = 0
         lastLeftTrigger = 0
         lastRightTrigger = 0
         pad.injectNeutral()
@@ -217,7 +235,7 @@ class GamepadUserService : IGamepadService.Stub() {
         ButtonBit.A to UinputGamepad.BTN_A, ButtonBit.B to UinputGamepad.BTN_B,
         ButtonBit.X to UinputGamepad.BTN_X, ButtonBit.Y to UinputGamepad.BTN_Y,
         ButtonBit.L1 to UinputGamepad.BTN_TL, ButtonBit.R1 to UinputGamepad.BTN_TR,
-        ButtonBit.L3 to UinputGamepad.BTN_THUMBL,
+        ButtonBit.L3 to UinputGamepad.BTN_THUMBL, ButtonBit.R3 to UinputGamepad.BTN_THUMBR,
         ButtonBit.SELECT to UinputGamepad.BTN_SELECT, ButtonBit.START to UinputGamepad.BTN_START,
         ButtonBit.MODE to UinputGamepad.BTN_MODE
     )
@@ -240,6 +258,8 @@ class GamepadUserService : IGamepadService.Stub() {
             lastDpad = -1
             lastLeftX = 0
             lastLeftY = 0
+            lastRightX = 0
+            lastRightY = 0
             lastLeftTrigger = 0
             lastRightTrigger = 0
         }

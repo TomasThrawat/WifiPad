@@ -18,9 +18,15 @@
     <string name="control_right_stick">Right stick</string>
     <string name="control_dpad">D-pad</string>
     <string name="control_face">A / B / X / Y buttons</string>
+    <string name="control_system">Select / Mode / Start</string>
     <string name="control_left_shoulder">Left L1 / L2</string>
     <string name="control_right_shoulder">Right R1 / R2</string>
     <string name="status_error">Error: %1$s</string>
+    <string name="local_network_permission_title">Local network access required</string>
+    <string name="local_network_permission_message">WifiPad needs local network access to send controller input to your TV. Allow the permission to connect.</string>
+    <string name="local_network_permission_retry">Try again</string>
+    <string name="local_network_permission_settings_message">Local network access is disabled. Enable it in WifiPad Controller app permissions, then return to the controller.</string>
+    <string name="local_network_permission_settings">Open app settings</string>
     <string name="settings_dead_zone">Stick dead zone</string>
     <string name="settings_sensitivity">Stick sensitivity</string>
 </resources>

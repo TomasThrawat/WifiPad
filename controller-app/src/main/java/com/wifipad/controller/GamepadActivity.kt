@@ -1,6 +1,8 @@
 package com.wifipad.controller
 
 import android.content.res.ColorStateList
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.view.Gravity
 import android.view.WindowManager
@@ -15,10 +17,13 @@ class GamepadActivity : AppCompatActivity() {
 
     companion object {
         const val EXTRA_HOST = "host"
+        private const val LOCAL_NETWORK_REQUEST = 3701
+        private const val LOCAL_NETWORK_PERMISSION = "android.permission.ACCESS_LOCAL_NETWORK"
     }
 
     private lateinit var padView: GamepadView
     private lateinit var sender: UdpSender
+    private var pendingHost: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -82,24 +87,80 @@ class GamepadActivity : AppCompatActivity() {
         setContentView(root)
         root.applySystemBarInsets()
 
+        startSenderWhenAllowed(host)
+    }
+
+
+    private fun startSenderWhenAllowed(host: String) {
+        pendingHost = host
+        if (Build.VERSION.SDK_INT < 37 ||
+            checkSelfPermission(LOCAL_NETWORK_PERMISSION) == PackageManager.PERMISSION_GRANTED
+        ) {
+            startSender(host)
+            return
+        }
+        if (shouldShowRequestPermissionRationale(LOCAL_NETWORK_PERMISSION)) {
+            showLocalNetworkPermissionRationale()
+        } else {
+            requestPermissions(arrayOf(LOCAL_NETWORK_PERMISSION), LOCAL_NETWORK_REQUEST)
+        }
+    }
+
+    private fun showLocalNetworkPermissionRationale() {
+        android.app.AlertDialog.Builder(this)
+            .setTitle(R.string.local_network_permission_title)
+            .setMessage(R.string.local_network_permission_message)
+            .setPositiveButton(R.string.local_network_permission_retry) { _, _ ->
+                requestPermissions(arrayOf(LOCAL_NETWORK_PERMISSION), LOCAL_NETWORK_REQUEST)
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun startSender(host: String) {
+        if (::sender.isInitialized) sender.stop()
         sender = UdpSender(padView.state)
         sender.onError = { message ->
             runOnUiThread {
-                Toast.makeText(
-                    this,
-                    getString(R.string.status_error, message),
-                    Toast.LENGTH_LONG
-                ).show()
+                Toast.makeText(this, getString(R.string.status_error, message), Toast.LENGTH_LONG).show()
                 finish()
             }
         }
         sender.start(host, Protocol.DEFAULT_PORT)
     }
 
+    @Deprecated("Use the permission result callback")
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode != LOCAL_NETWORK_REQUEST) return
+        if (grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) {
+            pendingHost?.let(::startSender)
+        } else if (shouldShowRequestPermissionRationale(LOCAL_NETWORK_PERMISSION)) {
+            showLocalNetworkPermissionRationale()
+        } else {
+            android.app.AlertDialog.Builder(this)
+                .setTitle(R.string.local_network_permission_title)
+                .setMessage(R.string.local_network_permission_settings_message)
+                .setPositiveButton(R.string.local_network_permission_settings) { _, _ ->
+                    val intent = android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                        data = android.net.Uri.fromParts("package", packageName, null)
+                    }
+                    startActivity(intent)
+                }
+                .setNegativeButton(android.R.string.cancel, null)
+                .show()
+        }
+    }
+
     override fun onResume() {
         super.onResume()
         if (::padView.isInitialized) {
             padView.reloadSettings()
+        }
+        if (Build.VERSION.SDK_INT >= 37 && !::sender.isInitialized &&
+            checkSelfPermission(LOCAL_NETWORK_PERMISSION) == PackageManager.PERMISSION_GRANTED
+        ) {
+            pendingHost?.let(::startSender)
         }
     }
 

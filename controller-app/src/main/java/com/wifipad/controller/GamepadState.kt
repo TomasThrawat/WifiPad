@@ -25,8 +25,8 @@ class GamepadState {
         buffer[3] = ((currentButtons ushr 8) and 0xFF).toByte()
         buffer[4] = leftX
         buffer[5] = leftY
-        buffer[6] = 0
-        buffer[7] = 0
+        buffer[6] = rightX
+        buffer[7] = rightY
         buffer[8] = leftTrigger.coerceIn(0, 255).toByte()
         buffer[9] = rightTrigger.coerceIn(0, 255).toByte()
         buffer[10] = dpad.coerceIn(0, 255).toByte()

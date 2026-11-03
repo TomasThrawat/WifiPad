@@ -457,6 +457,7 @@ class SettingsActivity : AppCompatActivity() {
         ControlGroup.RIGHT_STICK -> getString(R.string.control_right_stick)
         ControlGroup.DPAD -> getString(R.string.control_dpad)
         ControlGroup.FACE -> getString(R.string.control_face)
+        ControlGroup.SYSTEM -> getString(R.string.control_system)
         ControlGroup.LEFT_SHOULDER -> getString(R.string.control_left_shoulder)
         ControlGroup.RIGHT_SHOULDER -> getString(R.string.control_right_shoulder)
     }

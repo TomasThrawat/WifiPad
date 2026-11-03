@@ -11,9 +11,10 @@ enum class ControlGroup(
     val defaultY: Float
 ) {
     STICK("stick", true, 1.0f, 0.18f, 0.66f),
-    RIGHT_STICK("right_stick", false, 1.0f, 0.60f, 0.66f),
+    RIGHT_STICK("right_stick", true, 1.0f, 0.56f, 0.66f),
     DPAD("dpad", true, 1.0f, 0.20f, 0.31f),
     FACE("face", true, 1.0f, 0.84f, 0.64f),
+    SYSTEM("system", true, 1.0f, 0.50f, 0.20f),
     LEFT_SHOULDER("left_shoulder", true, 1.0f, 0.12f, 0.14f),
     RIGHT_SHOULDER("right_shoulder", true, 1.0f, 0.88f, 0.14f)
 }
@@ -31,15 +32,21 @@ object ControlSettingsStore {
     private const val PREFS = "wifipad_controls"
     private const val MIN_SCALE = 0.60f
     private const val MAX_SCALE = 1.60f
+    private const val RIGHT_STICK_VISIBILITY_MIGRATED = "right_stick_visibility_migrated"
 
     private fun prefs(context: Context) =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
     fun load(context: Context, group: ControlGroup): ControlSettings {
         val p = prefs(context)
+        if (group == ControlGroup.RIGHT_STICK && !p.getBoolean(RIGHT_STICK_VISIBILITY_MIGRATED, false)) {
+            p.edit {
+                putBoolean(group.key + "_visible", true)
+                putBoolean(RIGHT_STICK_VISIBILITY_MIGRATED, true)
+            }
+        }
         return ControlSettings(
-            visible = group != ControlGroup.RIGHT_STICK &&
-                p.getBoolean(group.key + "_visible", group.defaultVisible),
+            visible = p.getBoolean(group.key + "_visible", group.defaultVisible),
             scale = p.getFloat(group.key + "_scale", group.defaultScale)
                 .coerceIn(MIN_SCALE, MAX_SCALE),
             x = p.getFloat(group.key + "_x", group.defaultX).coerceIn(0.05f, 0.95f),
@@ -51,7 +58,7 @@ object ControlSettingsStore {
 
     fun save(context: Context, group: ControlGroup, settings: ControlSettings) {
         prefs(context).edit {
-            putBoolean(group.key + "_visible", group != ControlGroup.RIGHT_STICK && settings.visible)
+            putBoolean(group.key + "_visible", settings.visible)
             putFloat(group.key + "_scale", settings.scale.coerceIn(MIN_SCALE, MAX_SCALE))
             putFloat(group.key + "_x", settings.x.coerceIn(0.05f, 0.95f))
             putFloat(group.key + "_y", settings.y.coerceIn(0.08f, 0.92f))

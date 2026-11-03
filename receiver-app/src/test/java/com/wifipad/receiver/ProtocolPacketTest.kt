@@ -8,15 +8,17 @@ import org.junit.Test
 class ProtocolPacketTest {
     private fun validPacket() = byteArrayOf(
         Protocol.MAGIC, Protocol.VERSION, 0x01, 0x04,
-        0x7f, 0x81.toByte(), 0x80.toByte(), 0x80.toByte(),
+        0x7f, 0x81.toByte(), 0x7f, 0x81.toByte(),
         0x80.toByte(), 0xff.toByte(), 0x08
     )
 
-    @Test fun decodesV1AndIgnoresLegacyRightStickBytes() {
+    @Test fun decodesBothSticksAndTriggersFromV1Packet() {
         val parsed = ProtocolPacket.parse(validPacket())!!
         assertEquals(0x401, parsed.buttons)
         assertEquals(127, parsed.leftX)
         assertEquals(-127, parsed.leftY)
+        assertEquals(127, parsed.rightX)
+        assertEquals(-127, parsed.rightY)
         assertEquals(128, parsed.leftTrigger)
         assertEquals(255, parsed.rightTrigger)
         assertEquals(8, parsed.dpad)
@@ -36,6 +38,8 @@ class ProtocolPacketTest {
         assertNull(ProtocolPacket.parse(validPacket().apply { this[3] = 0x08 }))
         assertNull(ProtocolPacket.parse(validPacket().apply { this[4] = 0x80.toByte() }))
         assertNull(ProtocolPacket.parse(validPacket().apply { this[5] = 0x80.toByte() }))
+        assertNull(ProtocolPacket.parse(validPacket().apply { this[6] = 0x80.toByte() }))
+        assertNull(ProtocolPacket.parse(validPacket().apply { this[7] = 0x80.toByte() }))
         assertNull(ProtocolPacket.parse(validPacket().apply { this[10] = 9 }))
     }
 

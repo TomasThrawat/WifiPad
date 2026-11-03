@@ -151,9 +151,7 @@ class ControlEditorView(context: Context) : View(context) {
         selectionPaint.color = selectionColor
 
         ControlGroup.values().forEach { group ->
-            if (group != ControlGroup.RIGHT_STICK) {
-                drawGroup(canvas, group, getSelectedSettings(group), size)
-            }
+            drawGroup(canvas, group, getSelectedSettings(group), size)
         }
     }
 
@@ -256,7 +254,6 @@ class ControlEditorView(context: Context) : View(context) {
 
         ControlGroup.values()
             .reversed()
-            .filter { it != ControlGroup.RIGHT_STICK }
             .forEach { group ->
                 val settings = getSelectedSettings(group)
                 when (group) {
@@ -293,6 +290,21 @@ class ControlEditorView(context: Context) : View(context) {
                         ) return group
                     }
 
+                    ControlGroup.SYSTEM -> {
+                        val buttonWidth = size * 0.145f * settings.scale
+                        val buttonHeight = size * 0.07f * settings.scale
+                        val gap = size * 0.025f * settings.scale
+                        val totalWidth = buttonWidth * 3f + gap * 2f
+                        val center = getCenter(settings)
+                        if (RectF(
+                                center.first - totalWidth / 2f,
+                                center.second - buttonHeight / 2f,
+                                center.first + totalWidth / 2f,
+                                center.second + buttonHeight / 2f
+                            ).contains(x, y)
+                        ) return group
+                    }
+
                     ControlGroup.LEFT_SHOULDER,
                     ControlGroup.RIGHT_SHOULDER -> {
                         val half = size * 0.060f * settings.scale
@@ -321,9 +333,10 @@ class ControlEditorView(context: Context) : View(context) {
         val alpha = if (settings.visible) 255 else 65
 
         when (group) {
-            ControlGroup.STICK, ControlGroup.RIGHT_STICK -> drawStick(canvas, settings, size, alpha)
+            ControlGroup.STICK, ControlGroup.RIGHT_STICK -> drawStick(canvas, group, settings, size, alpha)
             ControlGroup.DPAD -> drawDpad(canvas, settings, size, alpha)
             ControlGroup.FACE -> drawFace(canvas, settings, size, alpha)
+            ControlGroup.SYSTEM -> drawSystem(canvas, settings, size, alpha)
             ControlGroup.LEFT_SHOULDER,
             ControlGroup.RIGHT_SHOULDER -> drawShoulders(canvas, group, settings, size, alpha)
         }
@@ -335,6 +348,7 @@ class ControlEditorView(context: Context) : View(context) {
 
     private fun drawStick(
         canvas: Canvas,
+        group: ControlGroup,
         settings: ControlSettings,
         size: Float,
         alpha: Int
@@ -351,6 +365,17 @@ class ControlEditorView(context: Context) : View(context) {
             radius * 0.48f,
             controlPaint
         )
+        controlPaint.color = surfaceContainerColor
+        controlPaint.alpha = alpha
+        val clickX = center.first + radius * 0.55f
+        val clickY = center.second + radius * 0.55f
+        canvas.drawCircle(clickX, clickY, size * 0.035f * settings.scale, controlPaint)
+        val clickLabel = if (group == ControlGroup.STICK) "L3" else "R3"
+        val clickText = Paint(textPaint).apply {
+            this.alpha = alpha
+            textSize = (size * 0.024f).coerceAtLeast(dp(9))
+        }
+        canvas.drawText(clickLabel, clickX, clickY - (clickText.ascent() + clickText.descent()) / 2f, clickText)
         controlPaint.color = surfaceContainerColor
         controlPaint.alpha = alpha
     }
@@ -389,6 +414,34 @@ class ControlEditorView(context: Context) : View(context) {
         drawSquare(canvas, center.first + spacing, center.second, button, controlPaint, "B", alpha)
         drawSquare(canvas, center.first, center.second + spacing, button, controlPaint, "A", alpha)
         drawSquare(canvas, center.first - spacing, center.second, button, controlPaint, "X", alpha)
+    }
+
+    private fun drawSystem(
+        canvas: Canvas,
+        settings: ControlSettings,
+        size: Float,
+        alpha: Int
+    ) {
+        val center = getCenter(settings)
+        val buttonWidth = size * 0.145f * settings.scale
+        val buttonHeight = size * 0.07f * settings.scale
+        val gap = size * 0.025f * settings.scale
+        listOf("SELECT", "MODE", "START").forEachIndexed { index, label ->
+            val cx = center.first + (index - 1) * (buttonWidth + gap)
+            val rect = RectF(
+                cx - buttonWidth / 2f,
+                center.second - buttonHeight / 2f,
+                cx + buttonWidth / 2f,
+                center.second + buttonHeight / 2f
+            )
+            controlPaint.alpha = alpha
+            canvas.drawRoundRect(rect, buttonHeight * 0.25f, buttonHeight * 0.25f, controlPaint)
+            val labelPaint = Paint(textPaint).apply {
+                this.alpha = alpha
+                textSize = (size * 0.030f).coerceAtLeast(dp(9))
+            }
+            canvas.drawText(label, rect.centerX(), rect.centerY() - (labelPaint.ascent() + labelPaint.descent()) / 2f, labelPaint)
+        }
     }
 
     private fun drawShoulders(
@@ -524,6 +577,7 @@ class ControlEditorView(context: Context) : View(context) {
             val gap = size * 0.020f * settings.scale
             3f * button + gap
         }
+        ControlGroup.SYSTEM -> size * (0.145f * 3f + 0.025f * 2f) / 2f * settings.scale
         ControlGroup.LEFT_SHOULDER,
         ControlGroup.RIGHT_SHOULDER -> size * 0.060f * settings.scale
     }
@@ -544,6 +598,7 @@ class ControlEditorView(context: Context) : View(context) {
             val gap = size * 0.020f * settings.scale
             3f * button + gap
         }
+        ControlGroup.SYSTEM -> size * 0.07f * settings.scale / 2f
         ControlGroup.LEFT_SHOULDER,
         ControlGroup.RIGHT_SHOULDER -> {
             val half = size * 0.060f * settings.scale
