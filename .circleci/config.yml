@@ -36,20 +36,35 @@ jobs:
       - run:
           name: Verify Android SDK 37
           command: |
+            set -euo pipefail
             SDK_ROOT="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
             test -n "$SDK_ROOT"
-            SDKMANAGER="$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
-            if [ ! -x "$SDKMANAGER" ]; then
-              SDKMANAGER="$(command -v sdkmanager)"
+
+            ANDROID_CLI="$SDK_ROOT/cmdline-tools/latest/bin/android"
+            if [ ! -x "$ANDROID_CLI" ]; then
+              ANDROID_CLI="$(find "$SDK_ROOT/cmdline-tools" -maxdepth 5 -type f -name android -perm -u+x -print -quit 2>/dev/null || true)"
             fi
+            if [ -z "$ANDROID_CLI" ] || [ ! -x "$ANDROID_CLI" ]; then
+              curl --fail --location --retry 3 https://dl.google.com/android/cli/latest/linux_x86_64/install.sh --output /tmp/install-android-cli.sh
+              bash /tmp/install-android-cli.sh
+              ANDROID_CLI="$(find "$HOME" -maxdepth 6 -type f -name android -perm -u+x -print -quit 2>/dev/null || true)"
+            fi
+            if [ -z "$ANDROID_CLI" ] || [ ! -x "$ANDROID_CLI" ]; then
+              echo "Android CLI executable was not found after installation"
+              exit 1
+            fi
+            echo "Android CLI: $ANDROID_CLI"
+            "$ANDROID_CLI" --version
+
             set +o pipefail
-            yes | "$SDKMANAGER" --sdk_root="$SDK_ROOT" --licenses >/dev/null
+            yes | "$ANDROID_CLI" --sdk="$SDK_ROOT" sdk install build-tools/36.0.0 ndk/28.2.13676358
+            yes | "$ANDROID_CLI" --sdk="$SDK_ROOT" sdk install --beta platforms/android-37
             set -o pipefail
-            "$SDKMANAGER" --sdk_root="$SDK_ROOT" "cmdline-tools;latest" "build-tools;36.0.0" "ndk;28.2.13676358"
-            "$SDKMANAGER" --sdk_root="$SDK_ROOT" --channel=1 "platforms;android-37"
+
             echo "export PATH=$SDK_ROOT/cmdline-tools/latest/bin:$PATH" >> "$BASH_ENV"
             test -d "$SDK_ROOT/platforms/android-37"
             test -d "$SDK_ROOT/build-tools/36.0.0"
+            test -d "$SDK_ROOT/ndk/28.2.13676358"
 
       - run:
           name: Prepare launcher icon silhouettes
