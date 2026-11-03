@@ -54,6 +54,7 @@ class MainActivity : AppCompatActivity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         val screen = createScreen()
         setContentView(screen)
+        screen.disableHapticFeedbackRecursively()
         screen.applySystemBarInsets()
         hostInput.setText(getSharedPreferences(PREFS, MODE_PRIVATE).getString(PREF_HOST, "").orEmpty())
         val saved = TvPairingStore.all(this)

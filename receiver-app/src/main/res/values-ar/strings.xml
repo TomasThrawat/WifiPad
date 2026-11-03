@@ -38,4 +38,10 @@
     <string name="receiver_packet_age">منذ %1$d مللي ثانية</string>
     <string name="receiver_input_test">الأزرار: %1$s · العصا اليسرى: %2$d/%3$d · اليمنى: %4$d/%5$d · L2/R2: %6$d/%7$d · الاتجاه: %8$d</string>
     <string name="receiver_pairing_restart_failed">تم تغيير مفتاح الاقتران لكن تعذر إعادة تشغيل المستقبل. اضغط تشغيل للمحاولة.</string>
+    <string name="receiver_android_device_label">اكتشاف جهاز التحكم داخل Android</string>
+    <string name="receiver_android_device_missing">لم يعرض Android InputManager جهاز WifiPad Gamepad من نوع Xbox حتى الآن.</string>
+    <string name="receiver_android_device_detected">جهاز Android: %1$s · VID %2$s · PID %3$s · افتراضي=%4$s
+مدى المحاور LX/LY وRX/RY وL2/R2 والاتجاهات: %5$s</string>
+    <string name="receiver_android_device_axes">LX %1$s · LY %2$s · RX %3$s · RY %4$s · L2 %5$s · R2 %6$s · HatX %7$s · HatY %8$s</string>
+    <string name="receiver_android_device_error">تعذر فحص أجهزة الإدخال في Android: %1$s</string>
 </resources>

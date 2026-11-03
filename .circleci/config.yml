@@ -123,10 +123,13 @@ jobs:
             gradle --no-daemon --max-workers=1 --stacktrace --warning-mode all :app:assembleDebug 2>&1 | tee -a "$PWD/gradle-build.log"
 
       - run:
-          name: Verify APKs contain no Flutter runtime
+          name: Verify APKs contain no Flutter runtime or vibration permission
           command: |
             set -euo pipefail
             : > apk-audit.txt
+            SDK_ROOT="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+            AAPT="$SDK_ROOT/build-tools/36.0.0/aapt"
+            test -x "$AAPT"
             for apk in controller-app/build/outputs/apk/debug/app-debug.apk receiver-app/build/outputs/apk/debug/app-debug.apk; do
               test -s "$apk"
               unzip -t "$apk"
@@ -134,6 +137,14 @@ jobs:
                 echo "Flutter runtime payload detected in $apk" | tee -a apk-audit.txt
                 exit 1
               fi
+              permissions="$("$AAPT" dump permissions "$apk")"
+              echo "Merged Android permissions for $apk:" | tee -a apk-audit.txt
+              printf '%s\n' "$permissions" | tee -a apk-audit.txt
+              if printf '%s\n' "$permissions" | grep -Fq 'android.permission.VIBRATE'; then
+                echo "VIBRATE permission must not be packaged in $apk" | tee -a apk-audit.txt
+                exit 1
+              fi
+              echo "VIBRATE permission: absent" | tee -a apk-audit.txt
               echo "APK: $apk" | tee -a apk-audit.txt
               ls -lh "$apk" | tee -a apk-audit.txt
               sha256sum "$apk" | tee -a apk-audit.txt

@@ -104,6 +104,7 @@ class GamepadActivity : AppCompatActivity() {
         )
 
         setContentView(root)
+        root.disableHapticFeedbackRecursively()
         root.applySystemBarInsets()
 
         startSenderWhenAllowed(host)
@@ -133,7 +134,7 @@ class GamepadActivity : AppCompatActivity() {
                 requestPermissions(arrayOf(LOCAL_NETWORK_PERMISSION), LOCAL_NETWORK_REQUEST)
             }
             .setNegativeButton(android.R.string.cancel, null)
-            .show()
+            .show().also { it.disableHapticFeedbackRecursively() }
     }
 
     private fun startSender(host: String) {
@@ -213,8 +214,14 @@ class GamepadActivity : AppCompatActivity() {
                     startActivity(intent)
                 }
                 .setNegativeButton(android.R.string.cancel, null)
-                .show()
+                .show().also { it.disableHapticFeedbackRecursively() }
         }
+    }
+
+    override fun onPause() {
+        if (::padView.isInitialized) padView.cancelActiveInputs()
+        if (::sender.isInitialized) sender.sendNeutralNow()
+        super.onPause()
     }
 
     override fun onResume() {

@@ -14,6 +14,8 @@ class UinputGamepad(private val out: OutputStream) {
         const val EV_ABS = 3
         const val EV_SYN = 0
         const val SYN_REPORT = 0
+        const val VENDOR_ID = 0x045e
+        const val PRODUCT_ID = 0x028e
         const val BTN_A = 304
         const val BTN_B = 305
         const val BTN_X = 307
@@ -63,8 +65,8 @@ class UinputGamepad(private val out: OutputStream) {
             put("id", DEVICE_ID)
             put("command", "register")
             put("name", "Xbox 360 Controller")
-            put("vid", 0x045e)
-            put("pid", 0x028e)
+            put("vid", VENDOR_ID)
+            put("pid", PRODUCT_ID)
             put("bus", "usb")
             put("configuration", configuration)
             put("abs_info", absInfo)

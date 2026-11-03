@@ -5,6 +5,7 @@ import android.content.pm.PackageManager
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.hardware.input.InputManager
 import android.net.ConnectivityManager
 import android.os.Build
 import android.os.Bundle
@@ -13,6 +14,8 @@ import android.os.IBinder
 import android.os.Looper
 import android.os.RemoteException
 import android.view.Gravity
+import android.view.InputDevice
+import android.view.MotionEvent
 import android.view.View
 import android.widget.FrameLayout
 import android.widget.ImageView
@@ -68,6 +71,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var phoneValue: MaterialTextView
     private lateinit var ageValue: MaterialTextView
     private lateinit var inputTestValue: MaterialTextView
+    private lateinit var androidGamepadValue: MaterialTextView
     private val nsdAdvertiser by lazy { TvNsdAdvertiser(this) }
 
     private val userServiceArgs = Shizuku.UserServiceArgs(
@@ -141,6 +145,7 @@ class MainActivity : AppCompatActivity() {
         Shizuku.addRequestPermissionResultListener(permissionListener)
         val screen = createScreen()
         setContentView(screen)
+        screen.disableHapticFeedbackRecursively()
         screen.applySystemBarInsets()
         refreshStatus()
         startButton.requestFocus()
@@ -212,6 +217,10 @@ class MainActivity : AppCompatActivity() {
         inputTestValue = label("Buttons: — · LX/LY: 0/0 · RX/RY: 0/0 · L2/R2: 0/0 · D-pad: 0", 12f, WHITE)
         inputTestValue.contentDescription = "Live input test values for buttons, both analog sticks, both triggers and directional pad"
         body.addView(inputTestValue)
+        addSpace(body, 10)
+        androidGamepadValue = label(getString(R.string.receiver_android_device_missing), 11f, MUTED)
+        androidGamepadValue.contentDescription = getString(R.string.receiver_android_device_label)
+        body.addView(androidGamepadValue)
         addSpace(body, 18)
         val divider = View(this).apply { setBackgroundColor(LINE) }
         body.addView(divider, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(1)))
@@ -344,6 +353,7 @@ class MainActivity : AppCompatActivity() {
         phoneValue.text = snapshot.phone.ifBlank { getString(R.string.receiver_phone_none) }
         ageValue.text = if (snapshot.ageMs <= 0L) "—" else getString(R.string.receiver_packet_age, snapshot.ageMs)
         inputTestValue.text = snapshot.inputTest
+        androidGamepadValue.text = snapshot.androidGamepad
         shizukuInfo.text = when {
             !snapshot.shizukuConnected -> getString(R.string.receiver_shizuku_offline)
             snapshot.permissionGranted -> getString(R.string.receiver_shizuku_granted)
@@ -370,7 +380,8 @@ class MainActivity : AppCompatActivity() {
         val lost: Long,
         val phone: String,
         val ageMs: Long,
-        val inputTest: String
+        val inputTest: String,
+        val androidGamepad: String
     )
 
     private fun statusSnapshot(): Snapshot {
@@ -383,6 +394,7 @@ class MainActivity : AppCompatActivity() {
         var phone = getString(R.string.receiver_phone_none)
         var ageMs = 0L
         var inputTest = "Buttons: — · LX/LY: 0/0 · RX/RY: 0/0 · L2/R2: 0/0 · D-pad: 0"
+        val androidGamepad = androidGamepadStatus()
         try {
             service?.let {
                 running = it.isRunning()
@@ -411,7 +423,42 @@ class MainActivity : AppCompatActivity() {
             connected && Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED
         } catch (_: Exception) { false }
         return Snapshot(running, localIp(), port, packets, lastError, connected, permission,
-            rate, rejectedCount, lostCount, phone, ageMs, inputTest)
+            rate, rejectedCount, lostCount, phone, ageMs, inputTest, androidGamepad)
+    }
+
+    private fun androidGamepadStatus(): String = runCatching {
+        val manager = getSystemService(InputManager::class.java)
+        val device = manager.inputDeviceIds.asSequence()
+            .mapNotNull(manager::getInputDevice)
+            .firstOrNull { candidate ->
+                val gamepadSource = candidate.supportsSource(InputDevice.SOURCE_GAMEPAD) ||
+                    candidate.supportsSource(InputDevice.SOURCE_JOYSTICK)
+                candidate.vendorId == UinputGamepad.VENDOR_ID &&
+                    candidate.productId == UinputGamepad.PRODUCT_ID && gamepadSource
+            }
+            ?: return getString(R.string.receiver_android_device_missing)
+
+        fun axisRange(axis: Int): String = device.getMotionRange(axis)?.let { range ->
+            "${range.min.toInt()}..${range.max.toInt()}"
+        } ?: "—"
+
+        val axes = getString(
+            R.string.receiver_android_device_axes,
+            axisRange(MotionEvent.AXIS_X), axisRange(MotionEvent.AXIS_Y),
+            axisRange(MotionEvent.AXIS_Z), axisRange(MotionEvent.AXIS_RZ),
+            axisRange(MotionEvent.AXIS_LTRIGGER), axisRange(MotionEvent.AXIS_RTRIGGER),
+            axisRange(MotionEvent.AXIS_HAT_X), axisRange(MotionEvent.AXIS_HAT_Y)
+        )
+        getString(
+            R.string.receiver_android_device_detected,
+            device.name,
+            "%04x".format(Locale.ROOT, device.vendorId),
+            "%04x".format(Locale.ROOT, device.productId),
+            device.isVirtual.toString(),
+            axes
+        )
+    }.getOrElse { failure ->
+        getString(R.string.receiver_android_device_error, failure.message ?: "unknown")
     }
 
     private fun startReceiver() {
@@ -427,7 +474,7 @@ class MainActivity : AppCompatActivity() {
                         requestPermissions(arrayOf(LOCAL_NETWORK_PERMISSION), LOCAL_NETWORK_REQUEST)
                     }
                     .setNegativeButton(android.R.string.cancel, null)
-                    .show()
+                    .show().also { it.disableHapticFeedbackRecursively() }
             } else {
                 requestPermissions(arrayOf(LOCAL_NETWORK_PERMISSION), LOCAL_NETWORK_REQUEST)
             }
@@ -497,7 +544,7 @@ class MainActivity : AppCompatActivity() {
                     startActivity(intent)
                 }
                 .setNegativeButton(android.R.string.cancel, null)
-                .show()
+                .show().also { it.disableHapticFeedbackRecursively() }
         }
     }
 
@@ -602,6 +649,7 @@ class MainActivity : AppCompatActivity() {
                 }
             }
             dialog.show()
+            dialog.disableHapticFeedbackRecursively()
         }
         render(pairing)
     }

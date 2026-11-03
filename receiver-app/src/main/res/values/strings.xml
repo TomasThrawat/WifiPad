@@ -38,4 +38,10 @@
     <string name="receiver_packet_age">%1$d ms ago</string>
     <string name="receiver_input_test">Buttons: %1$s · LX/LY: %2$d/%3$d · RX/RY: %4$d/%5$d · L2/R2: %6$d/%7$d · D-pad: %8$d</string>
     <string name="receiver_pairing_restart_failed">The pairing key changed, but the receiver could not restart. Press Start to retry.</string>
+    <string name="receiver_android_device_label">Android input device detection</string>
+    <string name="receiver_android_device_missing">Android InputManager does not currently report the WifiPad Xbox-style gamepad.</string>
+    <string name="receiver_android_device_detected">Android device: %1$s · VID %2$s · PID %3$s · virtual=%4$s
+Axes LX/LY, RX/RY, L2/R2 and D-pad: %5$s</string>
+    <string name="receiver_android_device_axes">LX %1$s · LY %2$s · RX %3$s · RY %4$s · L2 %5$s · R2 %6$s · HatX %7$s · HatY %8$s</string>
+    <string name="receiver_android_device_error">Could not inspect Android input devices: %1$s</string>
 </resources>

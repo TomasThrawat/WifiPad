@@ -107,4 +107,22 @@ class GamepadStateTest {
         assertEquals(normal.x.toInt() / 2, reduced.x.toInt())
     }
 
+    @Test fun clearResetsAllGamepadControls() {
+        val state = GamepadState().apply {
+            buttons = 0x7ff
+            leftX = 127; leftY = (-127).toByte()
+            rightX = 64; rightY = (-64).toByte()
+            leftTrigger = 255; rightTrigger = 200; dpad = 8
+        }
+        state.clear()
+        assertEquals(0, state.buttons)
+        assertEquals(0, state.leftX.toInt())
+        assertEquals(0, state.leftY.toInt())
+        assertEquals(0, state.rightX.toInt())
+        assertEquals(0, state.rightY.toInt())
+        assertEquals(0, state.leftTrigger)
+        assertEquals(0, state.rightTrigger)
+        assertEquals(0, state.dpad)
+    }
+
 }

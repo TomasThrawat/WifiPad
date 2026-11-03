@@ -16,6 +16,12 @@ class GamepadState {
         buttons = if (pressed) buttons or bit else buttons and bit.inv()
     }
 
+    fun clear() {
+        buttons = 0
+        leftX = 0; leftY = 0; rightX = 0; rightY = 0
+        leftTrigger = 0; rightTrigger = 0; dpad = 0
+    }
+
     fun writePacket(buffer: ByteArray) {
         require(buffer.size >= Protocol.PACKET_SIZE)
         val currentButtons = buttons

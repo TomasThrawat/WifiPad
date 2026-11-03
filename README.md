@@ -1,82 +1,43 @@
 # WifiPad
 
-A PS4-style virtual gamepad that connects over WiFi (UDP) instead of Bluetooth,
-for TVs that only support wireless debugging (ADB over WiFi) + Shizuku.
+WifiPad turns an Android phone into a **gamepad for Android TV** over the local Wi-Fi network. It consists of two native Android apps and a secure UDP protocol. It is gamepad-only: there is no TV remote, touchpad, mouse, pointer, media-control or navigation-remote mode.
 
-Two apps, one Gradle project:
+## Apps
 
-* **controller-app** — installs on your phone. It keeps the existing touch layout
-  with one analog stick, D-pad, face buttons, L1/R1, L2/R2, and Start. It sends
-  an 11-byte UDP state packet about 60 times/second. See `PROTOCOL.md`.
-* **receiver-app** — installs on the TV. Uses Shizuku (shell privilege, no root)
-  to run AOSP's `uinput` command and register a virtual gamepad input device.
-  Android keylayout selection and game-level controller support vary by TV
-  firmware and game; registering a device does not guarantee universal support.
+### Controller (phone)
 
-## How the pieces fit
+The phone app provides a full-screen on-screen controller with:
 
-```
- phone (controller-app)                  TV (receiver-app, via Shizuku)
- ┌─────────────────────┐   WiFi / UDP    ┌───────────────────────────────┐
- │ touch sticks/buttons │ ─────────────► │ UDP socket (shell process)     │
- │ -> GamepadState      │  port 27191    │   -> uinput JSON commands      │
- │ -> 11-byte packet    │                │   -> /dev/uinput virtual pad   │
- └─────────────────────┘                 └───────────────────────────────┘
-```
+- Left and right analog sticks.
+- A/B/X/Y face buttons, L1/R1 shoulders, analog L2/R2 triggers and an eight-direction D-pad.
+- L3/R3 stick clicks, Select, Start and Mode.
+- Adjustable control positions and sizes, stick dead zones and sensitivity, saved profiles and button remapping.
+- Secure QR pairing, discovery of already-paired TVs, reconnect discovery, and connection/ACK statistics.
 
-No PC, no USB cable is needed at play time — wireless debugging is only used
-*once* to start Shizuku on the TV.
+### Receiver (Android TV)
 
-## Build
+The TV app starts a Shizuku user service and registers one Xbox-style virtual gamepad through `uinput`. Its diagnostics show received, rejected and missing-sequence packets, the paired phone address, packet age, current button/axis values, and whether Android `InputManager` reports the matching gamepad device and its axis ranges.
 
-CircleCI builds both Android debug APKs on pushes to main and pull requests.
-The workflow runs Kotlin unit tests and Android Lint, then assembles both APKs.
-The phone and TV interfaces are native Android Material 3 screens. The project
-does not use the Flutter SDK, Flutter engine, Dart runtime, or a Flutter module.
+A device appearing in `InputManager` confirms Android has registered a matching input device; it does not prove that every game consumes every key or axis. Android TV firmware, key layouts and individual games can differ.
 
-The repository does not include a Gradle wrapper. CI installs Java 17,
-Gradle 8.14.6, Android SDK 35, and NDK 28.2.13676358. It links one native app
-module at a time to the temporary Gradle project :app; therefore the old
-./gradlew :controller-app:assembleDebug :receiver-app:assembleDebug command
-is not valid for this repository. For local builds, follow the two app-build
-stages in .circleci/config.yml.
+## Secure connection
 
-## One-time setup on the TV
+Both devices must be on the same local network. Start Shizuku on the TV, open WifiPad Receiver and start the receiver, then show its secure pairing QR code. Scan that code in WifiPad Controller. A previously paired TV can also be found through network discovery.
 
-1. Settings → About → tap Build number 7x to unlock Developer options.
-2. Developer options → enable **Wireless debugging**.
-3. Install **Shizuku** (from its GitHub releases or Play Store) and
-   **receiver-app** on the TV.
-4. Open Shizuku's app, choose "Pair device with pairing code", it will show
-   the pairing screen — this uses Android's own wireless-debugging pairing
-   flow, no computer required. Confirm once.
-5. Back in Shizuku, tap "Start" — this launches the Shizuku service using the
-   wireless-debugging shell session you just paired.
-6. Open **receiver-app**, tap **Start**, grant the Shizuku permission prompt.
-   The screen shows the TV's IP and confirms it's listening.
+Protocol version 2 uses UDP port `27191`, a 256-bit pairing secret stored with Android Keystore AES-GCM, HMAC-SHA256 authentication truncated to 128 bits, fresh client/server nonces, monotonically increasing input sequence numbers and authenticated ACKs. The receiver rejects unauthenticated v1 packets, invalid sessions and replayed input, and releases virtual controls after its 750 ms watchdog timeout. The phone sends an authenticated neutral gamepad frame when the gamepad screen pauses or stops; the watchdog remains the fallback if the neutral frame or its ACK is lost.
 
-After a TV reboot, Shizuku stops (it isn't rooted, so nothing restarts it
-automatically) — reopen the Shizuku app and tap "Start" again; you will not
-need to re-pair.
+**The protocol authenticates packets but does not encrypt the UDP input payload.** Use WifiPad only on a trusted local network and keep the pairing QR private. Rotating the TV pairing key revokes the previous pairing.
 
-## On the phone
+See `PROTOCOL.md` for the complete frame layout and button/axis mapping.
 
-Open **controller-app**, type the TV's IP shown in receiver-app, tap
-**Connect**. Both devices must be on the same WiFi network/subnet.
+## No vibration
 
-## Verifying it worked
+Neither app provides vibration or haptic feedback. Both Android manifests remove the `android.permission.VIBRATE` permission during manifest merging, and CircleCI checks the final APK permissions so that the permission cannot be reintroduced unnoticed.
 
-On the TV, a gamepad tester or Settings → Remote & accessories on some
-Android TV builds may show the virtual device after receiver-app starts.
-Recognition and game compatibility depend on the TV firmware and the game.
+## Build and verification
 
-## Notes / limitations
+CircleCI builds the phone controller and TV receiver APKs. The workflow runs both modules' Kotlin unit tests and Android Lint, assembles both debug APKs, checks the APK contents and inspects the merged permissions for `VIBRATE`.
 
-* L2/R2 use the existing touch regions to produce analog values. The receiver
-  maps them to the trigger axes in AOSP's Xbox 360 controller keylayout. OEM
-  TV keylayout behavior can still vary.
-* The D-pad supports cardinal and diagonal directions through simultaneous
-  touch input, using the wire codes documented in `PROTOCOL.md`.
-* The virtual controller exposes one analog stick. Games that require a
-  separate right stick for camera control cannot receive that second axis.
-* UDP remains unencrypted and unauthenticated; use only on a trusted local network.
+The current CI configuration uses JDK 17, Gradle 9.3.1, Android SDK platform 37.0, Build Tools 36.0.0 and NDK 28.2.13676358. The repository has no Gradle wrapper; use the two module build stages in `.circleci/config.yml` for local builds. The CI job creates a temporary `:app` link for each module rather than building both named modules in one Gradle invocation.
+
+No emulator is required by the CI workflow. Unit tests validate the protocol and state logic. Real input-device registration, Shizuku/uinput behavior and game compatibility still require testing on the target Android TV.

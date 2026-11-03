@@ -55,7 +55,7 @@ internal object SecureProtocol {
         controllerId: ByteArray, clientNonce: Long, serverNonce: Long, sequence: Long,
         payload: ByteArray, secret: ByteArray
     ): ByteArray {
-        require(controllerId.size == 16 && payload.size == PAYLOAD_SIZE && secret.size == 32)
+        require(controllerId.size == 16 && payload.size == PAYLOAD_SIZE && secret.size == 32 && sequence >= 0L)
         val body = ByteBuffer.allocate(INPUT_SIZE - MAC_SIZE).order(ByteOrder.BIG_ENDIAN)
             .put(MAGIC).put(VERSION).put(INPUT).put(controllerId)
             .putLong(clientNonce).putLong(serverNonce).putLong(sequence).put(payload).array()
@@ -70,7 +70,9 @@ internal object SecureProtocol {
         if (b.get() != MAGIC || b.get() != VERSION || b.get() != ACK) return null
         val id = ByteArray(16).also(b::get)
         if (!MessageDigest.isEqual(id, controllerId) || b.long != clientNonce || b.long != serverNonce) return null
-        return Ack(b.long)
+        val sequence = b.long
+        if (sequence < 0L) return null
+        return Ack(sequence)
     }
 
     fun encodePayload(input: Input): ByteArray = ByteBuffer.allocate(PAYLOAD_SIZE).order(ByteOrder.BIG_ENDIAN)

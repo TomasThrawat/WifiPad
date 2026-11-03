@@ -139,6 +139,7 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
 
     init {
         isClickable = true
+        isHapticFeedbackEnabled = false
         importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_YES
         ViewCompat.setAccessibilityDelegate(this, accessibilityHelper)
         loadSettings()

@@ -57,6 +57,7 @@ internal object SecureProtocol {
         val server = b.long
         if (client != clientNonce || server != serverNonce) return null
         val sequence = b.long
+        if (sequence < 0L) return null
         val input = Input(
             b.short.toInt() and 0xffff,
             b.get().toInt(), b.get().toInt(), b.get().toInt(), b.get().toInt(),

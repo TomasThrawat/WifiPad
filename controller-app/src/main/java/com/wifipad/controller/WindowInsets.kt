@@ -1,6 +1,8 @@
 package com.wifipad.controller
 
+import android.app.Dialog
 import android.view.View
+import android.view.ViewGroup
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 
@@ -27,4 +29,17 @@ internal fun View.applySystemBarInsets() {
         windowInsets
     }
     ViewCompat.requestApplyInsets(this)
+}
+
+/** Disables touch haptics on every view owned by this app screen. */
+internal fun View.disableHapticFeedbackRecursively() {
+    isHapticFeedbackEnabled = false
+    if (this is ViewGroup) {
+        for (index in 0 until childCount) getChildAt(index).disableHapticFeedbackRecursively()
+    }
+}
+
+/** Apply the same no-haptics policy to app-owned dialogs after show(). */
+internal fun Dialog.disableHapticFeedbackRecursively() {
+    window?.decorView?.disableHapticFeedbackRecursively()
 }

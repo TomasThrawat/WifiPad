@@ -6,9 +6,21 @@ WifiPad v2 uses UDP on port `27191`, a persistent pairing secret, HMAC-SHA256
 truncated to 128 bits, a fresh two-nonce session handshake, monotonically
 increasing sequence numbers, and authenticated acknowledgements. The receiver
 accepts input only from the paired controller ID and the source address/port
-that completed the current handshake. Replayed, stale, unsigned, malformed,
-or out-of-session frames are rejected. The receiver releases every virtual
-input after the existing 750 ms watchdog timeout.
+that completed the current handshake. A HELLO creates a provisional challenge;
+it cannot replace a recently active session. The receiver commits that session
+only after a correctly authenticated INPUT proves possession of the fresh server
+nonce. Duplicate HELLOs from the same pending endpoint reuse the original
+challenge, and a bounded recent client-nonce history rejects replayed handshakes
+during the service lifetime. Replayed, stale, unsigned, malformed, or
+out-of-session frames are rejected. The receiver releases every virtual input
+after the existing 750 ms watchdog timeout.
+
+The controller sends a final authenticated neutral INPUT frame when the gamepad
+screen pauses or the controller stops. It waits briefly for the matching
+authenticated ACK before closing the UDP socket; the receiver watchdog remains
+the fallback if that frame or ACK is lost. RTT measurements are matched to the
+exact acknowledged sequence, including delayed ACKs, instead of measuring the
+current packet against an unrelated earlier ACK.
 
 The 256-bit pairing secret is stored encrypted using Android Keystore AES-GCM
 on both devices. The TV displays a QR code containing the TV ID, controller ID,

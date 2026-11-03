@@ -6,8 +6,8 @@ import java.net.DatagramSocket
 import java.net.InetAddress
 import java.net.SocketTimeoutException
 import java.security.SecureRandom
-import java.util.concurrent.Executors
 import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
@@ -22,14 +22,30 @@ internal class UdpSender(
     private val acknowledged = AtomicLong(0)
     private val lost = AtomicLong(0)
     private val lastRtt = AtomicLong(0)
-    @Volatile private var socket: DatagramSocket? = null
     @Volatile private var executor: ExecutorService? = null
+    @Volatile private var activeSession: ActiveSession? = null
     @Volatile private var lastAckNanos = 0L
-    @Volatile private var lastAckSequence = -1L
     @Volatile var onError: ((String) -> Unit)? = null
     @Volatile var onStatus: ((ConnectionStats) -> Unit)? = null
 
     data class ConnectionStats(val connected: Boolean, val sent: Long, val acknowledged: Long, val lost: Long, val rttMs: Long)
+
+    private data class ActiveSession(
+        val socket: DatagramSocket,
+        val address: InetAddress,
+        val port: Int,
+        val controllerId: ByteArray,
+        val clientNonce: Long,
+        val serverNonce: Long,
+        val secret: ByteArray
+    ) {
+        val lock = Any()
+        val ackLedger = AckLedger(MAX_PENDING_ACK_TIMES)
+        var nextSequence = 0L
+        @Volatile var stopRequested = false
+    }
+
+    private data class Handshake(val clientNonce: Long, val serverNonce: Long)
 
     fun start(host: String, port: Int) {
         stop()
@@ -43,6 +59,7 @@ internal class UdpSender(
             onError?.invoke("The saved TV pairing is invalid. Scan its QR code again.")
             return
         }
+
         val exec = Executors.newSingleThreadExecutor { runnable ->
             Thread(runnable, "wifipad-secure-udp").apply { isDaemon = true }
         }
@@ -52,45 +69,29 @@ internal class UdpSender(
             var reconnectDelayMs = 500L
             while (running.get() && !Thread.currentThread().isInterrupted) {
                 var active: DatagramSocket? = null
+                var session: ActiveSession? = null
                 try {
                     val resolved = InetAddress.getByName(host)
-                    active = DatagramSocket().apply { soTimeout = 350 }
-                    socket = active
-                    val clientNonce = SecureRandom().nextLong()
-                    val hello = SecureProtocol.encodeHello(controllerId, clientNonce, secret)
-                    active.send(DatagramPacket(hello, hello.size, resolved, port))
-                    val response = ByteArray(SecureProtocol.WELCOME_SIZE)
-                    val welcome = DatagramPacket(response, response.size)
-                    active.receive(welcome)
-                    val serverNonce = SecureProtocol.parseWelcome(
-                        response.copyOf(welcome.length), controllerId, clientNonce, secret
-                    ) ?: throw SecurityException("The TV rejected this pairing. Scan its current QR code again.")
-                    active.soTimeout = 6
+                    active = DatagramSocket().apply { soTimeout = HANDSHAKE_TIMEOUT_MS }
+                    val handshake = performHandshake(active, resolved, port, controllerId, secret)
+                    if (!running.get()) throw InterruptedException("Controller stopped during handshake")
+
+                    active.soTimeout = ACK_TIMEOUT_MS
+                    session = ActiveSession(
+                        active, resolved, port, controllerId, handshake.clientNonce,
+                        handshake.serverNonce, secret
+                    )
+                    activeSession = session
                     lastAckNanos = System.nanoTime()
-                    lastAckSequence = -1L
                     reconnectDelayMs = 500L
                     onStatus?.invoke(stats(true))
+
                     val period = 1_000_000_000L / hz.coerceIn(1, 120)
                     var nextTick = System.nanoTime()
-                    var sequence = 0L
                     var lastStatsNanos = nextTick
                     while (running.get() && !Thread.currentThread().isInterrupted) {
-                        val payload = SecureProtocol.encodePayload(
-                            SecureProtocol.Input(
-                                state.buttons, state.leftX.toInt(), state.leftY.toInt(),
-                                state.rightX.toInt(), state.rightY.toInt(), state.leftTrigger,
-                                state.rightTrigger, state.dpad
-                            )
-                        )
-                        val frame = SecureProtocol.encodeInput(
-                            controllerId, clientNonce, serverNonce, sequence, payload, secret
-                        )
-                        val sentAt = System.nanoTime()
-                        active.send(DatagramPacket(frame, frame.size, resolved, port))
-                        sent.incrementAndGet()
-                        receiveAck(active, resolved, port, controllerId, clientNonce, serverNonce, secret, sentAt)
-                        sequence++
-                        if (sequence > 10 && System.nanoTime() - lastAckNanos > 2_000_000_000L) {
+                        sendCurrentInput(session, ACK_TIMEOUT_MS)
+                        if (session.nextSequence > 10L && System.nanoTime() - lastAckNanos > ACK_LOSS_TIMEOUT_NANOS) {
                             throw IOException("No authenticated acknowledgements; reconnecting")
                         }
                         nextTick += period
@@ -107,13 +108,22 @@ internal class UdpSender(
                     if (running.get()) onError?.invoke(failure.message ?: "Pairing rejected")
                     running.set(false)
                 } catch (_: SocketTimeoutException) {
-                    // TV or Wi-Fi is temporarily unavailable. Retry with bounded backoff.
-                    lost.incrementAndGet()
+                    if (running.get()) lost.incrementAndGet()
+                } catch (_: InterruptedException) {
+                    if (running.get()) lost.incrementAndGet()
                 } catch (_: Exception) {
                     if (running.get()) lost.incrementAndGet()
                 } finally {
-                    runCatching { active?.close() }
-                    if (socket === active) socket = null
+                    if (session != null) {
+                        synchronized(session.lock) {
+                            if (!session.stopRequested) {
+                                runCatching { session.socket.close() }
+                                if (activeSession === session) activeSession = null
+                            }
+                        }
+                    } else {
+                        runCatching { active?.close() }
+                    }
                     onStatus?.invoke(stats(false))
                 }
                 if (running.get()) {
@@ -126,38 +136,150 @@ internal class UdpSender(
         }
     }
 
-    private fun receiveAck(
-        active: DatagramSocket, host: InetAddress, port: Int, controllerId: ByteArray,
-        clientNonce: Long, serverNonce: Long, secret: ByteArray, sentAt: Long
-    ) {
+    private fun performHandshake(
+        socket: DatagramSocket,
+        address: InetAddress,
+        port: Int,
+        controllerId: ByteArray,
+        secret: ByteArray
+    ): Handshake {
+        val clientNonce = SecureRandom().nextLong()
+        val hello = SecureProtocol.encodeHello(controllerId, clientNonce, secret)
+        var attempts = 0
+        while (attempts < HANDSHAKE_ATTEMPTS) {
+            socket.send(DatagramPacket(hello, hello.size, address, port))
+            val response = ByteArray(SecureProtocol.WELCOME_SIZE)
+            val packet = DatagramPacket(response, response.size)
+            try {
+                socket.receive(packet)
+                if (packet.address != address || packet.port != port) {
+                    attempts++
+                    continue
+                }
+                val serverNonce = SecureProtocol.parseWelcome(
+                    packet.data.copyOf(packet.length), controllerId, clientNonce, secret
+                ) ?: throw SecurityException("The TV rejected this pairing. Scan its current QR code again.")
+                return Handshake(clientNonce, serverNonce)
+            } catch (_: SocketTimeoutException) {
+                attempts++
+            }
+        }
+        throw SocketTimeoutException("The TV did not complete the secure gamepad handshake")
+    }
+
+    private fun sendCurrentInput(session: ActiveSession, ackTimeoutMs: Int): Boolean = synchronized(session.lock) {
+        val input = SecureProtocol.Input(
+            state.buttons, state.leftX.toInt(), state.leftY.toInt(), state.rightX.toInt(), state.rightY.toInt(),
+            state.leftTrigger, state.rightTrigger, state.dpad
+        )
+        sendInputLocked(session, input, ackTimeoutMs, allowStopping = false)
+    }
+
+    private fun sendInputLocked(
+        session: ActiveSession,
+        input: SecureProtocol.Input,
+        ackTimeoutMs: Int,
+        allowStopping: Boolean
+    ): Boolean {
+        if (session.socket.isClosed || (!allowStopping && (!running.get() || session.stopRequested))) return false
+        if (session.nextSequence < 0L || session.nextSequence == Long.MAX_VALUE) {
+            throw IOException("Gamepad session sequence exhausted; reconnecting")
+        }
+        val sequence = session.nextSequence++
+        val payload = SecureProtocol.encodePayload(input)
+        val frame = SecureProtocol.encodeInput(
+            session.controllerId, session.clientNonce, session.serverNonce, sequence, payload, session.secret
+        )
+        val sentAt = System.nanoTime()
+        session.socket.send(DatagramPacket(frame, frame.size, session.address, session.port))
+        sent.incrementAndGet()
+        session.ackLedger.recordSent(sequence, sentAt)
+        return receiveAcksLocked(session, ackTimeoutMs, sequence)
+    }
+
+    /** Reads until timeout (or the requested ACK) and pairs each ACK with its own send timestamp. */
+    private fun receiveAcksLocked(session: ActiveSession, timeoutMs: Int, expectedSequence: Long): Boolean {
+        if (timeoutMs <= 0 || session.socket.isClosed) return false
+        val previousTimeout = session.socket.soTimeout
+        val deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMs.toLong())
         val buffer = ByteArray(SecureProtocol.ACK_SIZE)
-        val packet = DatagramPacket(buffer, buffer.size)
+        var expectedAcknowledged = false
         try {
-            active.receive(packet)
-            if (packet.address != host || packet.port != port) return
-            val ack = SecureProtocol.parseAck(packet.data.copyOf(packet.length), controllerId, clientNonce, serverNonce, secret)
-                ?: return
-            if (ack.sequence <= lastAckSequence) return
-            lastAckSequence = ack.sequence
-            acknowledged.incrementAndGet()
-            lastRtt.set(((System.nanoTime() - sentAt) / 1_000_000L).coerceAtLeast(0L))
-            lastAckNanos = System.nanoTime()
-        } catch (_: SocketTimeoutException) { }
+            while (!session.socket.isClosed) {
+                val remaining = deadline - System.nanoTime()
+                if (remaining <= 0L) break
+                val remainingMs = ((remaining + 999_999L) / 1_000_000L).coerceIn(1L, timeoutMs.toLong())
+                session.socket.soTimeout = remainingMs.toInt()
+                val packet = DatagramPacket(buffer, buffer.size)
+                try {
+                    session.socket.receive(packet)
+                } catch (_: SocketTimeoutException) {
+                    break
+                }
+                if (packet.address != session.address || packet.port != session.port) continue
+                val ack = SecureProtocol.parseAck(
+                    packet.data.copyOf(packet.length), session.controllerId,
+                    session.clientNonce, session.serverNonce, session.secret
+                ) ?: continue
+                val now = System.nanoTime()
+                val rttNanos = session.ackLedger.acknowledge(ack.sequence, now) ?: continue
+                acknowledged.incrementAndGet()
+                lastRtt.set((rttNanos / 1_000_000L).coerceAtLeast(0L))
+                lastAckNanos = now
+                if (ack.sequence == expectedSequence) {
+                    expectedAcknowledged = true
+                    break
+                }
+            }
+        } finally {
+            if (!session.socket.isClosed) session.socket.soTimeout = previousTimeout
+        }
+        return expectedAcknowledged
     }
 
     private fun stats(connected: Boolean) = ConnectionStats(
         connected, sent.get(), acknowledged.get(), lost.get(), lastRtt.get()
     )
 
+    /** Releases all gamepad controls immediately while keeping the authenticated session alive. */
+    fun sendNeutralNow(): Boolean {
+        state.clear()
+        val session = activeSession ?: return false
+        return synchronized(session.lock) {
+            if (session.stopRequested) return@synchronized false
+            sendInputLocked(session, NEUTRAL_INPUT, NEUTRAL_ACK_TIMEOUT_MS, allowStopping = false)
+        }
+    }
+
     fun stop() {
+        state.clear()
+        val session = activeSession
+        session?.stopRequested = true
         running.set(false)
         executor?.shutdownNow()
         executor = null
-        runCatching { socket?.close() }
-        socket = null
-        state.buttons = 0; state.leftX = 0; state.leftY = 0
-        state.rightX = 0; state.rightY = 0; state.leftTrigger = 0; state.rightTrigger = 0
-        state.dpad = 0
+        if (session != null) {
+            synchronized(session.lock) {
+                if (!session.socket.isClosed) {
+                    runCatching {
+                        sendInputLocked(session, NEUTRAL_INPUT, STOP_ACK_TIMEOUT_MS, allowStopping = true)
+                    }
+                }
+                if (activeSession === session) activeSession = null
+                runCatching { session.socket.close() }
+            }
+        }
         onStatus?.invoke(stats(false))
+    }
+
+    private companion object {
+        const val HANDSHAKE_TIMEOUT_MS = 300
+        const val HANDSHAKE_ATTEMPTS = 3
+        const val ACK_TIMEOUT_MS = 6
+        const val NEUTRAL_ACK_TIMEOUT_MS = 40
+        const val STOP_ACK_TIMEOUT_MS = 60
+        const val MAX_PENDING_ACK_TIMES = 128
+        const val ACK_LOSS_TIMEOUT_NANOS = 2_000_000_000L
+        val NEUTRAL_INPUT = SecureProtocol.Input(0, 0, 0, 0, 0, 0, 0, 0)
     }
 }

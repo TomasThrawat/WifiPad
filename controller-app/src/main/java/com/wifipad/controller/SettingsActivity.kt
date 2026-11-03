@@ -476,7 +476,7 @@ class SettingsActivity : AppCompatActivity() {
                                 refresh()
                                 preview.reloadSavedSettings()
                                 dialog.dismiss()
-                            }.setNegativeButton(android.R.string.cancel, null).show()
+                            }.setNegativeButton(android.R.string.cancel, null).show().also { it.disableHapticFeedbackRecursively() }
                     }
                 }
                 mappingRow.addView(button, LinearLayout.LayoutParams(0, dp(44), 1f).apply { marginEnd = dp(4); marginStart = dp(4) })
@@ -499,6 +499,7 @@ class SettingsActivity : AppCompatActivity() {
         )
 
         setContentView(root)
+        root.disableHapticFeedbackRecursively()
         root.applySystemBarInsets()
         selectGroup(ControlGroup.STICK)
     }

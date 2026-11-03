@@ -91,4 +91,9 @@ class SecureProtocolTest {
         assertEquals(SecureProtocol.ACK_SIZE, ack.size)
         assertArrayEquals(mac(ack.copyOfRange(0, ack.size - 16)), ack.copyOfRange(ack.size - 16, ack.size))
     }
+    @Test fun rejectsNegativeSequenceEvenWhenInputMacIsValid() {
+        val negativeSequence = input(42L, 99L, -1L)
+        assertNull(SecureProtocol.parseInput(negativeSequence, id, 42L, 99L, key))
+    }
+
 }

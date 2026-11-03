@@ -3,7 +3,6 @@ package com.wifipad.receiver
 import android.os.Process as AndroidProcess
 import java.net.DatagramPacket
 import java.net.DatagramSocket
-import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.security.SecureRandom
 import java.util.concurrent.atomic.AtomicBoolean
@@ -35,11 +34,7 @@ class GamepadUserService : IGamepadService.Stub() {
     @Volatile private var currentRate = 0L
     @Volatile private var pairingId = ByteArray(0)
     @Volatile private var pairingSecret = ByteArray(0)
-    @Volatile private var sessionAddress: InetAddress? = null
-    @Volatile private var sessionPort = -1
-    @Volatile private var clientNonce = 0L
-    @Volatile private var serverNonce = 0L
-    private var lastSequence = -1L
+    private val sessions = SecureSessionTracker()
     @Volatile private var failsafeApplied = false
 
     override fun start(port: Int, controllerId: String, secret: String): Boolean {
@@ -52,7 +47,7 @@ class GamepadUserService : IGamepadService.Stub() {
         received.set(0); rejected.set(0); lost.set(0)
         rateWindowStart = System.nanoTime(); rateWindowPackets = 0L; currentRate = 0L
         lastRemote = ""
-        sessionAddress = null; sessionPort = -1; lastSequence = -1L
+        sessions.reset()
         lastPacketNanos = System.nanoTime(); failsafeApplied = false
         var proc: Process? = null
         var sock: DatagramSocket? = null
@@ -96,40 +91,71 @@ class GamepadUserService : IGamepadService.Stub() {
                 if (frame.size == SecureProtocol.HELLO_SIZE) {
                     val hello = SecureProtocol.parseHello(frame, pairingId, pairingSecret)
                     if (hello == null) { rejected.incrementAndGet(); continue }
-                    val nonce = SecureRandom().nextLong()
-                    synchronized(inputLock) {
-                        sessionAddress = packet.address; sessionPort = packet.port
-                        clientNonce = hello.clientNonce; serverNonce = nonce; lastSequence = -1L
-                        lastPacketNanos = System.nanoTime(); failsafeApplied = false
-                    }
-                    val reply = SecureProtocol.encodeWelcome(pairingId, hello.clientNonce, nonce, pairingSecret)
-                    sock.send(DatagramPacket(reply, reply.size, packet.address, packet.port))
+                    val session = sessions.acceptHello(
+                        packet.address, packet.port, hello.clientNonce, SecureRandom().nextLong(), System.nanoTime()
+                    )
+                    if (session == null) { rejected.incrementAndGet(); continue }
+                    val reply = SecureProtocol.encodeWelcome(
+                        pairingId, session.clientNonce, session.serverNonce, pairingSecret
+                    )
+                    sock.send(DatagramPacket(reply, reply.size, session.address, session.port))
                     continue
                 }
-                val currentAddress = sessionAddress
-                if (currentAddress == null || packet.address != currentAddress || packet.port != sessionPort) {
-                    rejected.incrementAndGet(); continue
+
+                val candidates = sessions.candidates(packet.address, packet.port)
+                var matchedSession: SecureSessionTracker.Session? = null
+                var parsedInput: SecureProtocol.InputFrame? = null
+                for (candidate in candidates) {
+                    val candidateInput = SecureProtocol.parseInput(
+                        frame, pairingId, candidate.clientNonce, candidate.serverNonce, pairingSecret
+                    )
+                    if (candidateInput != null) {
+                        matchedSession = candidate
+                        parsedInput = candidateInput
+                        break
+                    }
                 }
-                val parsed = SecureProtocol.parseInput(frame, pairingId, clientNonce, serverNonce, pairingSecret)
-                if (parsed == null) { rejected.incrementAndGet(); continue }
+                val secureSession = matchedSession
+                val parsed = parsedInput
+                if (secureSession == null || parsed == null) { rejected.incrementAndGet(); continue }
+
                 var accepted = false
                 synchronized(inputLock) {
-                    if (!running.get() || parsed.sequence <= lastSequence) {
+                    if (!running.get()) {
                         rejected.incrementAndGet()
                     } else {
-                        if (lastSequence >= 0 && parsed.sequence > lastSequence + 1) lost.addAndGet(parsed.sequence - lastSequence - 1)
-                        lastSequence = parsed.sequence
-                        received.incrementAndGet()
-                        lastPacketNanos = System.nanoTime()
-                        failsafeApplied = false
-                        lastRemote = packet.address.hostAddress ?: "unknown"
-                        updateRate()
-                        handleInput(parsed.input, pad)
-                        accepted = true
+                        val previousSequence = secureSession.lastSequence
+                        when (sessions.acceptInput(secureSession, parsed.sequence, System.nanoTime())) {
+                            SecureSessionTracker.InputResult.REJECTED -> rejected.incrementAndGet()
+                            SecureSessionTracker.InputResult.PROMOTED -> {
+                                neutralize(pad)
+                                received.incrementAndGet()
+                                lastPacketNanos = System.nanoTime()
+                                failsafeApplied = false
+                                lastRemote = packet.address.hostAddress ?: "unknown"
+                                updateRate()
+                                handleInput(parsed.input, pad)
+                                accepted = true
+                            }
+                            SecureSessionTracker.InputResult.ACCEPTED -> {
+                                if (previousSequence >= 0L && parsed.sequence > previousSequence + 1L) {
+                                    lost.addAndGet(parsed.sequence - previousSequence - 1L)
+                                }
+                                received.incrementAndGet()
+                                lastPacketNanos = System.nanoTime()
+                                failsafeApplied = false
+                                lastRemote = packet.address.hostAddress ?: "unknown"
+                                updateRate()
+                                handleInput(parsed.input, pad)
+                                accepted = true
+                            }
+                        }
                     }
                 }
                 if (!accepted) continue
-                val ack = SecureProtocol.encodeAck(pairingId, clientNonce, serverNonce, parsed.sequence, pairingSecret)
+                val ack = SecureProtocol.encodeAck(
+                    pairingId, secureSession.clientNonce, secureSession.serverNonce, parsed.sequence, pairingSecret
+                )
                 sock.send(DatagramPacket(ack, ack.size, packet.address, packet.port))
             } catch (e: Exception) {
                 if (running.get()) error = e.message ?: "receive error"
@@ -220,7 +246,7 @@ class GamepadUserService : IGamepadService.Stub() {
             runCatching { socket?.close() }; socket = null
             uinputProcess?.let { runCatching { it.outputStream.close() }; runCatching { it.destroy() } }
             uinputProcess = null
-            sessionAddress = null; sessionPort = -1; lastSequence = -1
+            sessions.reset()
             pairingId.fill(0); pairingSecret.fill(0)
         }
     }

@@ -59,4 +59,14 @@ class SecureProtocolTest {
         assertNull(SecureProtocol.parseWelcome(frame, id, 1L, key))
         assertNotEquals(1, SecureProtocol.VERSION.toInt())
     }
+    @Test fun rejectsNegativeAcknowledgementSequenceEvenWithValidMac() {
+        assertNull(SecureProtocol.parseAck(signedAck(1L, 2L, -1L), id, 1L, 2L, key))
+    }
+
+    @Test fun neutralInputPayloadReleasesEveryGamepadControl() {
+        val payload = SecureProtocol.encodePayload(SecureProtocol.Input(0, 0, 0, 0, 0, 0, 0, 0))
+        assertEquals(SecureProtocol.PAYLOAD_SIZE, payload.size)
+        assertArrayEquals(ByteArray(SecureProtocol.PAYLOAD_SIZE), payload)
+    }
+
 }
