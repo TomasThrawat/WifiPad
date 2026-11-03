@@ -203,7 +203,7 @@ class MainActivity : AppCompatActivity() {
             gravity = Gravity.CENTER_VERTICAL
         }
         startButton = MaterialButton(this).apply {
-            text = "Start receiver"
+            text = getString(R.string.start_receiver)
             isAllCaps = false
             textSize = 14f
             typeface = Typeface.DEFAULT_BOLD
@@ -215,7 +215,7 @@ class MainActivity : AppCompatActivity() {
         actions.addView(startButton, LinearLayout.LayoutParams(0, dp(54), 1f))
         addSpaceHorizontal(actions, 12)
         stopButton = MaterialButton(this).apply {
-            text = "Stop receiver"
+            text = getString(R.string.stop_receiver)
             isAllCaps = false
             textSize = 14f
             cornerRadius = dp(16)
