@@ -2,6 +2,7 @@ package com.wifipad.controller
 
 import android.content.Context
 import android.graphics.Canvas
+import android.graphics.DashPathEffect
 import android.graphics.Paint
 import android.graphics.RectF
 import android.util.AttributeSet
@@ -40,6 +41,25 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
     private val systemButtons = mutableListOf<Rect2>()
     private val activePointerToRect = mutableMapOf<Int, Rect2>()
     private val settings = mutableMapOf<ControlGroup, ControlSettings>()
+
+    /** In edit mode the pad stops sending input and controls can be dragged/resized in place. */
+    var editMode = false
+        private set
+    var onSelectionChanged: ((ControlGroup?) -> Unit)? = null
+    private var selectedGroup: ControlGroup? = null
+    private var dragPointer = -1
+    private var dragOffsetX = 0f
+    private var dragOffsetY = 0f
+    private val density = resources.displayMetrics.density
+    private val selectionPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeWidth = 2f * density
+        pathEffect = DashPathEffect(floatArrayOf(8f * density, 6f * density), 0f)
+    }
+
+    private companion object {
+        const val HIDDEN_ALPHA = 70
+    }
 
     private val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val stickBasePaint = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -225,24 +245,29 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
 
         systemButtons.forEach { drawButton(canvas, it) }
 
-        if (settings.getValue(ControlGroup.STICK).visible) {
-            drawStick(canvas, stickBase, stickKnob)
-        }
-        if (settings.getValue(ControlGroup.RIGHT_STICK).visible) {
-            drawStick(canvas, rightStickBase, rightStickKnob)
-        }
-        if (settings.getValue(ControlGroup.DPAD).visible) {
-            dpadButtons.forEach { drawButton(canvas, it) }
-        }
-        if (settings.getValue(ControlGroup.FACE).visible) {
-            faceButtons.forEach { drawButton(canvas, it) }
+        ControlGroup.values().forEach { group ->
+            val visible = settings.getValue(group).visible
+            if (!visible && !editMode) return@forEach
+            // Hidden controls stay visible (dimmed) while editing so they can be shown again.
+            val saved = if (visible) -1 else
+                canvas.saveLayerAlpha(0f, 0f, width.toFloat(), height.toFloat(), HIDDEN_ALPHA)
+            drawGroup(canvas, group)
+            if (saved >= 0) canvas.restoreToCount(saved)
         }
 
-        shoulderButtons.forEach {
-            if (settings.getValue(it.group).visible) drawButton(canvas, it)
-        }
-        triggerButtons.forEach {
-            if (settings.getValue(it.group).visible) drawButton(canvas, it)
+        if (editMode) selectedGroup?.let { drawSelection(canvas, it) }
+    }
+
+    private fun drawGroup(canvas: Canvas, group: ControlGroup) {
+        when (group) {
+            ControlGroup.STICK -> drawStick(canvas, stickBase, stickKnob)
+            ControlGroup.RIGHT_STICK -> drawStick(canvas, rightStickBase, rightStickKnob)
+            ControlGroup.DPAD -> dpadButtons.forEach { drawButton(canvas, it) }
+            ControlGroup.FACE -> faceButtons.forEach { drawButton(canvas, it) }
+            ControlGroup.LEFT_SHOULDER, ControlGroup.RIGHT_SHOULDER -> {
+                shoulderButtons.filter { it.group == group }.forEach { drawButton(canvas, it) }
+                triggerButtons.filter { it.group == group }.forEach { drawButton(canvas, it) }
+            }
         }
     }
 
@@ -280,6 +305,11 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
+        if (editMode) {
+            handleEditTouch(event)
+            invalidate()
+            return true
+        }
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN,
             MotionEvent.ACTION_POINTER_DOWN -> handleDown(event, event.actionIndex)
@@ -460,6 +490,157 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         state.rightY = 0
         stickKnob = PointF(stickBase.cx, stickBase.cy)
         rightStickKnob = PointF(rightStickBase.cx, rightStickBase.cy)
+    }
+
+    // ---------------------------------------------------------------------
+    // In-place layout editing (single layout, stored in ControlSettingsStore)
+    // ---------------------------------------------------------------------
+
+    fun enterEditMode() {
+        resetInputState()
+        editMode = true
+        dragPointer = -1
+        select(null)
+    }
+
+    fun saveLayout() {
+        for (group in ControlGroup.values()) {
+            ControlSettingsStore.save(context, group, settings.getValue(group))
+        }
+        exitEditMode()
+    }
+
+    fun cancelEdit() {
+        loadSettings()
+        exitEditMode()
+    }
+
+    fun resetLayoutToDefaults() {
+        for (group in ControlGroup.values()) {
+            settings[group] = ControlSettings(
+                visible = group.defaultVisible,
+                scale = group.defaultScale,
+                x = group.defaultX,
+                y = group.defaultY
+            )
+        }
+        refreshLayout()
+        invalidate()
+        selectedGroup?.let { onSelectionChanged?.invoke(it) }
+    }
+
+    fun selectedSettings(): ControlSettings? = selectedGroup?.let { settings[it] }
+
+    fun updateSelected(transform: (ControlSettings) -> ControlSettings) {
+        val group = selectedGroup ?: return
+        settings[group] = transform(settings.getValue(group))
+        refreshLayout()
+        invalidate()
+    }
+
+    private fun exitEditMode() {
+        editMode = false
+        dragPointer = -1
+        selectedGroup = null
+        onSelectionChanged?.invoke(null)
+        resetInputState()
+        refreshLayout()
+        invalidate()
+    }
+
+    private fun refreshLayout() {
+        if (width > 0 && height > 0) recalculateLayout(width, height)
+    }
+
+    private fun select(group: ControlGroup?) {
+        selectedGroup = group
+        onSelectionChanged?.invoke(group)
+        invalidate()
+    }
+
+    private fun handleEditTouch(event: MotionEvent) {
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN,
+            MotionEvent.ACTION_POINTER_DOWN -> {
+                if (dragPointer != -1) return
+                val index = event.actionIndex
+                val x = event.getX(index)
+                val y = event.getY(index)
+                val hit = groupAt(x, y)
+                if (hit != selectedGroup) select(hit)
+                if (hit != null) {
+                    val current = settings.getValue(hit)
+                    dragPointer = event.getPointerId(index)
+                    dragOffsetX = x - width * current.x
+                    dragOffsetY = y - height * current.y
+                }
+            }
+            MotionEvent.ACTION_MOVE -> {
+                val index = event.findPointerIndex(dragPointer)
+                if (dragPointer == -1 || index < 0) return
+                moveSelectedTo(event.getX(index) - dragOffsetX, event.getY(index) - dragOffsetY)
+            }
+            MotionEvent.ACTION_UP,
+            MotionEvent.ACTION_POINTER_UP -> {
+                if (event.getPointerId(event.actionIndex) == dragPointer) dragPointer = -1
+            }
+            MotionEvent.ACTION_CANCEL -> dragPointer = -1
+        }
+    }
+
+    private fun moveSelectedTo(anchorX: Float, anchorY: Float) {
+        val group = selectedGroup ?: return
+        val current = settings.getValue(group)
+        val bounds = groupBounds(group)
+        val margin = 4f * density
+        val dx = clampDelta(anchorX - width * current.x, margin - bounds.left, width - margin - bounds.right)
+        val dy = clampDelta(anchorY - height * current.y, margin - bounds.top, height - margin - bounds.bottom)
+        settings[group] = current.copy(
+            x = ((width * current.x + dx) / width).coerceIn(0.05f, 0.95f),
+            y = ((height * current.y + dy) / height).coerceIn(0.08f, 0.92f)
+        )
+        refreshLayout()
+        invalidate()
+    }
+
+    // Never force a control that already sits past the margin to jump; only limit further drift.
+    private fun clampDelta(delta: Float, lo: Float, hi: Float): Float =
+        delta.coerceIn(lo.coerceAtMost(0f), hi.coerceAtLeast(0f))
+
+    private fun groupAt(x: Float, y: Float): ControlGroup? {
+        val pad = 8f * density
+        return ControlGroup.values().reversed().firstOrNull { group ->
+            val b = groupBounds(group)
+            RectF(b.left - pad, b.top - pad, b.right + pad, b.bottom + pad).contains(x, y)
+        }
+    }
+
+    private fun groupBounds(group: ControlGroup): RectF = when (group) {
+        ControlGroup.STICK -> circleBounds(stickBase)
+        ControlGroup.RIGHT_STICK -> circleBounds(rightStickBase)
+        ControlGroup.DPAD -> unionOf(dpadButtons.map { it.r })
+        ControlGroup.FACE -> unionOf(faceButtons.map { it.r })
+        ControlGroup.LEFT_SHOULDER, ControlGroup.RIGHT_SHOULDER ->
+            unionOf((shoulderButtons + triggerButtons).filter { it.group == group }.map { it.r })
+    }
+
+    private fun circleBounds(c: Circle) = RectF(c.cx - c.r, c.cy - c.r, c.cx + c.r, c.cy + c.r)
+
+    private fun unionOf(rects: List<RectF>): RectF {
+        if (rects.isEmpty()) return RectF()
+        val result = RectF(rects.first())
+        for (i in 1 until rects.size) result.union(rects[i])
+        return result
+    }
+
+    private fun drawSelection(canvas: Canvas, group: ControlGroup) {
+        val b = groupBounds(group)
+        val pad = 8f * density
+        selectionPaint.color = onSurfaceColor
+        canvas.drawRoundRect(
+            b.left - pad, b.top - pad, b.right + pad, b.bottom + pad,
+            12f * density, 12f * density, selectionPaint
+        )
     }
 
     override fun onDetachedFromWindow() {
