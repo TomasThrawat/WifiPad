@@ -66,6 +66,16 @@ need to re-pair.
 Open **controller-app**, type the TV's IP shown in receiver-app, tap
 **Connect**. Both devices must be on the same WiFi network/subnet.
 
+### Editing the layout
+
+Tap **Edit layout** on the controller screen. The pad stays on screen (no
+separate settings page): tap a control to select it, drag it to move it, and use
+the small panel to hide/show it or change its size (and dead zone / sensitivity
+for the sticks). Hidden controls stay visible but dimmed while editing so you can
+bring them back. **Save** keeps the layout, **Cancel** (or Back) discards the
+changes, **Reset** restores the defaults. There is a single layout, stored on the
+phone.
+
 ## Verifying it worked
 
 On the TV, any app that reads gamepad input (a "gamepad tester" app, or
