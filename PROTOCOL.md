@@ -32,5 +32,8 @@ anything changed (simpler than delta-encoding, and cheap on a LAN).
 | 9   | Start / Options   |
 | 10  | Mode / PS button  |
 
-The controller app currently only emits dpad codes 1/3/5/7 (no diagonals) —
-codes 2/4/6/8 are reserved in the wire format for whoever wants to add them.
+The controller emits all eight dpad codes: a diagonal (2/4/6/8) is sent when two
+adjacent d-pad buttons are held together.
+
+Triggers are analog: the controller derives 0..255 from the vertical touch
+position inside the L2/R2 pad (top = 0, bottom = 255).

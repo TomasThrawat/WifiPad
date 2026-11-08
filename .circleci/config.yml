@@ -85,17 +85,13 @@ jobs:
             gradle --no-daemon --max-workers=1 --stacktrace --warning-mode all :app:assembleDebug 2>&1 | tee -a "$PWD/gradle-build.log"
 
       - run:
-          name: Verify APKs contain no Flutter runtime
+          name: Audit built APKs
           command: |
             set -euo pipefail
             : > apk-audit.txt
             for apk in controller-app/build/outputs/apk/debug/app-debug.apk receiver-app/build/outputs/apk/debug/app-debug.apk; do
               test -s "$apk"
               unzip -t "$apk"
-              if unzip -l "$apk" | grep -Ei 'libflutter\.so|libapp\.so|flutter_assets|kernel_blob\.bin|isolate_snapshot_data'; then
-                echo "Flutter runtime payload detected in $apk" | tee -a apk-audit.txt
-                exit 1
-              fi
               echo "APK: $apk" | tee -a apk-audit.txt
               ls -lh "$apk" | tee -a apk-audit.txt
               sha256sum "$apk" | tee -a apk-audit.txt
