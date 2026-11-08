@@ -5,9 +5,3 @@ build/
 local.properties
 *.iml
 .DS_Store
-flutter_ui/.dart_tool/
-flutter_ui/.packages
-flutter_ui/.flutter-plugins
-flutter_ui/.flutter-plugins-dependencies
-flutter_ui/.android/
-flutter_ui/build/

@@ -76,9 +76,8 @@ immediately.
 
 ## Notes / limitations
 
-* L2/R2 on the phone UI are simple press buttons (0 or 255), not a smooth
-  drag-to-analog gesture — straightforward to extend in `GamepadView.kt`
-  if a game needs a graduated trigger pull.
+* L2/R2 are analog: the value (0-255) follows the vertical touch position
+  inside the trigger pad (top = 0, bottom = 255).
 * The D-pad supports all four cardinal directions and four diagonals
   (8-way input), using the wire codes documented in `PROTOCOL.md`.
 * UDP is unencrypted and unauthenticated — fine on a private home network,
