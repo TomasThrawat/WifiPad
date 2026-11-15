@@ -29,20 +29,33 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Android SDK tools
-        uses: android-actions/setup-android@v4
-
-      - name: Install Gradle 9.3.1
-        uses: gradle/actions/setup-gradle@v6
-        with:
-          gradle-version: '9.3.1'
+      - name: Install Android CLI
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo install -d -m 0755 /etc/apt/keyrings
+          curl -fsSL https://dl.google.com/linux/linux_signing_key.pub | sudo tee /etc/apt/keyrings/google.asc >/dev/null
+          sudo chmod a+r /etc/apt/keyrings/google.asc
+          echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/google.asc] http://dl.google.com/android/cli/latest/debian/ stable main" | sudo tee /etc/apt/sources.list.d/android-cli.list >/dev/null
+          sudo apt-get update
+          sudo apt-get install --yes android-cli
+          android --no-metrics --version
 
       - name: Install required Android SDK packages
+        shell: bash
         run: |
-          sdkmanager --channel=3 "platforms;android-37.0" "build-tools;36.0.0" "ndk;28.2.13676358"
+          set -euo pipefail
+          android --no-metrics sdk install platform-tools build-tools/36.0.0 ndk/28.2.13676358
+          android --no-metrics sdk install --canary platforms/android-37.0
           test -f "$ANDROID_HOME/platforms/android-37.0/android.jar"
           test -x "$ANDROID_HOME/build-tools/36.0.0/aapt"
           test -d "$ANDROID_HOME/ndk/28.2.13676358"
+          test -x "$ANDROID_HOME/platform-tools/adb"
+
+      - name: Install Gradle 9.9.1
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: '9.9.1'
 
       - name: Prepare launcher icons
         run: python3 scripts/prepare_launcher_icons.py
@@ -87,7 +100,7 @@ jobs:
 
       - name: Upload test reports, lint reports, and debug APKs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: wifipad-android-build-${{ github.run_number }}
           if-no-files-found: warn
