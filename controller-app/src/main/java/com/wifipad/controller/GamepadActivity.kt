@@ -147,8 +147,11 @@ class GamepadActivity : AppCompatActivity() {
         sender = UdpSender(padView.state, updated)
         sender.onStatus = { stats ->
             runOnUiThread {
-                connectionInfo.text = if (!stats.connected) getString(R.string.connection_disconnected) else
-                    getString(R.string.connection_stats, stats.rttMs.toInt(), stats.acknowledged.toInt(), stats.sent.toInt(), stats.lost.toInt())
+                connectionInfo.text = when {
+                    !stats.connected -> getString(R.string.connection_disconnected)
+                    stats.rttMs == null -> getString(R.string.connection_measuring)
+                    else -> getString(R.string.connection_stats, stats.rttMs)
+                }
                 if (stats.connected) {
                     stopReconnectDiscovery()
                 } else if (!rebuildingSender) {

@@ -337,7 +337,7 @@ class ControlEditorView(context: Context) : View(context) {
         val alpha = if (settings.visible) 255 else 65
 
         when (group) {
-            ControlGroup.STICK, ControlGroup.RIGHT_STICK -> drawStick(canvas, group, settings, size, alpha)
+            ControlGroup.STICK, ControlGroup.RIGHT_STICK -> drawStick(canvas, settings, size, alpha)
             ControlGroup.DPAD -> drawDpad(canvas, settings, size, alpha)
             ControlGroup.FACE -> drawFace(canvas, settings, size, alpha)
             ControlGroup.SYSTEM -> drawSystem(canvas, settings, size, alpha)
@@ -352,7 +352,6 @@ class ControlEditorView(context: Context) : View(context) {
 
     private fun drawStick(
         canvas: Canvas,
-        group: ControlGroup,
         settings: ControlSettings,
         size: Float,
         alpha: Int
@@ -371,15 +370,6 @@ class ControlEditorView(context: Context) : View(context) {
         )
         controlPaint.color = surfaceContainerColor
         controlPaint.alpha = alpha
-        val clickX = center.first + radius * 0.55f
-        val clickY = center.second + radius * 0.55f
-        canvas.drawCircle(clickX, clickY, size * 0.035f * settings.scale, controlPaint)
-        val clickLabel = if (group == ControlGroup.STICK) "L3" else "R3"
-        val clickText = Paint(textPaint).apply {
-            this.alpha = alpha
-            textSize = (size * 0.024f).coerceAtLeast(dp(9))
-        }
-        canvas.drawText(clickLabel, clickX, clickY - (clickText.ascent() + clickText.descent()) / 2f, clickText)
         controlPaint.color = surfaceContainerColor
         controlPaint.alpha = alpha
     }

@@ -10,7 +10,6 @@ import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
-import java.util.concurrent.atomic.AtomicLong
 
 internal class UdpSender(
     private val state: GamepadState,
@@ -18,17 +17,14 @@ internal class UdpSender(
     private val hz: Int = 60
 ) {
     private val running = AtomicBoolean(false)
-    private val sent = AtomicLong(0)
-    private val acknowledged = AtomicLong(0)
-    private val lost = AtomicLong(0)
-    private val lastRtt = AtomicLong(0)
+    private val rttEstimator = RttEstimator()
     @Volatile private var executor: ExecutorService? = null
     @Volatile private var activeSession: ActiveSession? = null
     @Volatile private var lastAckNanos = 0L
     @Volatile var onError: ((String) -> Unit)? = null
     @Volatile var onStatus: ((ConnectionStats) -> Unit)? = null
 
-    data class ConnectionStats(val connected: Boolean, val sent: Long, val acknowledged: Long, val lost: Long, val rttMs: Long)
+    data class ConnectionStats(val connected: Boolean, val rttMs: Long?)
 
     private data class ActiveSession(
         val socket: DatagramSocket,
@@ -83,6 +79,7 @@ internal class UdpSender(
                     )
                     activeSession = session
                     lastAckNanos = System.nanoTime()
+                    rttEstimator.reset()
                     reconnectDelayMs = 500L
                     onStatus?.invoke(stats(true))
 
@@ -108,11 +105,11 @@ internal class UdpSender(
                     if (running.get()) onError?.invoke(failure.message ?: "Pairing rejected")
                     running.set(false)
                 } catch (_: SocketTimeoutException) {
-                    if (running.get()) lost.incrementAndGet()
+                    // A timed-out handshake is retried by the reconnect loop.
                 } catch (_: InterruptedException) {
-                    if (running.get()) lost.incrementAndGet()
+                    // Shutdown interrupts the worker; a live worker retries below.
                 } catch (_: Exception) {
-                    if (running.get()) lost.incrementAndGet()
+                    // Treat transport errors as a disconnected session and reconnect.
                 } finally {
                     if (session != null) {
                         synchronized(session.lock) {
@@ -192,7 +189,6 @@ internal class UdpSender(
         )
         val sentAt = System.nanoTime()
         session.socket.send(DatagramPacket(frame, frame.size, session.address, session.port))
-        sent.incrementAndGet()
         session.ackLedger.recordSent(sequence, sentAt)
         return receiveAcksLocked(session, ackTimeoutMs, sequence)
     }
@@ -223,9 +219,9 @@ internal class UdpSender(
                 ) ?: continue
                 val now = System.nanoTime()
                 val rttNanos = session.ackLedger.acknowledge(ack.sequence, now) ?: continue
-                acknowledged.incrementAndGet()
-                lastRtt.set((rttNanos / 1_000_000L).coerceAtLeast(0L))
+                val firstRttSample = rttEstimator.addSample(rttNanos)
                 lastAckNanos = now
+                if (firstRttSample) onStatus?.invoke(stats(true))
                 if (ack.sequence == expectedSequence) {
                     expectedAcknowledged = true
                     break
@@ -238,7 +234,8 @@ internal class UdpSender(
     }
 
     private fun stats(connected: Boolean) = ConnectionStats(
-        connected, sent.get(), acknowledged.get(), lost.get(), lastRtt.get()
+        connected = connected,
+        rttMs = rttEstimator.roundTripMillis()
     )
 
     /** Releases all gamepad controls immediately while keeping the authenticated session alive. */

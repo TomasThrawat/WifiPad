@@ -10,6 +10,7 @@ import android.os.Looper
 import android.util.AttributeSet
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewConfiguration
 import com.google.android.material.color.MaterialColors
 import androidx.core.view.ViewCompat
 import androidx.core.view.accessibility.AccessibilityNodeInfoCompat
@@ -34,20 +35,34 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
     private var stickBase = Circle(0f, 0f, 0f)
     private var stickPointer = -1
     private var stickKnob = PointF(0f, 0f)
+    private var stickDownX = 0f
+    private var stickDownY = 0f
+    private var stickMoved = false
     private var rightStickBase = Circle(0f, 0f, 0f)
     private var rightStickPointer = -1
     private var rightStickKnob = PointF(0f, 0f)
+    private var rightStickDownX = 0f
+    private var rightStickDownY = 0f
+    private var rightStickMoved = false
 
     private val faceButtons = mutableListOf<Rect2>()
     private val dpadButtons = mutableListOf<Rect2>()
     private val shoulderButtons = mutableListOf<Rect2>()
     private val triggerButtons = mutableListOf<Rect2>()
     private val systemButtons = mutableListOf<Rect2>()
-    private val stickClickButtons = mutableListOf<Rect2>()
     private val activePointerToRect = mutableMapOf<Int, Rect2>()
     private val settings = mutableMapOf<ControlGroup, ControlSettings>()
     private data class AccessibilityTarget(val id: Int, val bounds: RectF, val label: String, val bit: Int, val group: ControlGroup)
     private val accessibilityHandler = Handler(Looper.getMainLooper())
+    private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop.toFloat()
+    private val releaseLeftStickClick = Runnable {
+        state.setButton(ButtonMappingStore.bit(context, "L3"), false)
+        invalidate()
+    }
+    private val releaseRightStickClick = Runnable {
+        state.setButton(ButtonMappingStore.bit(context, "R3"), false)
+        invalidate()
+    }
     private val accessibilityHelper = object : ExploreByTouchHelper(this) {
         override fun getVirtualViewAt(x: Float, y: Float): Int = accessibilityTargets()
             .firstOrNull { it.bounds.contains(x, y) }?.id ?: INVALID_ID
@@ -183,18 +198,6 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         rightStickBase = Circle(w * rightStick.x, h * rightStick.y, rightStickRadius)
         rightStickKnob = PointF(rightStickBase.cx, rightStickBase.cy)
 
-        stickClickButtons.clear()
-        val leftClickRadius = s * 0.035f * stick.scale
-        stickClickButtons += Rect2(
-            sq(stickBase.cx + stickBase.r * 0.55f, stickBase.cy + stickBase.r * 0.55f, leftClickRadius),
-            ButtonMappingStore.bit(context, "L3"), "L3", true, ControlGroup.STICK
-        )
-        val rightClickRadius = s * 0.035f * rightStick.scale
-        stickClickButtons += Rect2(
-            sq(rightStickBase.cx + rightStickBase.r * 0.55f, rightStickBase.cy + rightStickBase.r * 0.55f, rightClickRadius),
-            ButtonMappingStore.bit(context, "R3"), "R3", true, ControlGroup.RIGHT_STICK
-        )
-
         val dpadButton = s * 0.072f * dpad.scale
         val dpadGap = s * 0.020f * dpad.scale
         val dpadSpacing = 2f * dpadButton + dpadGap
@@ -307,16 +310,12 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
             }
         }
         if (settings[ControlGroup.STICK]?.visible == true) {
-            val click = stickClickButtons.firstOrNull { it.group == ControlGroup.STICK }
-            if (click != null) append(click)
             val r = stickBase.r * 0.65f
-            targets += AccessibilityTarget(id++, RectF(stickBase.cx-r, stickBase.cy-r, stickBase.cx+r, stickBase.cy+r), "Left stick", ButtonBit.L3, ControlGroup.STICK)
+            targets += AccessibilityTarget(id++, RectF(stickBase.cx-r, stickBase.cy-r, stickBase.cx+r, stickBase.cy+r), "Left stick", ButtonMappingStore.bit(context, "L3"), ControlGroup.STICK)
         }
         if (settings[ControlGroup.RIGHT_STICK]?.visible == true) {
-            val click = stickClickButtons.firstOrNull { it.group == ControlGroup.RIGHT_STICK }
-            if (click != null) append(click)
             val r = rightStickBase.r * 0.65f
-            targets += AccessibilityTarget(id++, RectF(rightStickBase.cx-r, rightStickBase.cy-r, rightStickBase.cx+r, rightStickBase.cy+r), "Right stick", ButtonBit.R3, ControlGroup.RIGHT_STICK)
+            targets += AccessibilityTarget(id++, RectF(rightStickBase.cx-r, rightStickBase.cy-r, rightStickBase.cx+r, rightStickBase.cy+r), "Right stick", ButtonMappingStore.bit(context, "R3"), ControlGroup.RIGHT_STICK)
         }
         dpadButtons.forEach(::append)
         faceButtons.forEach(::append)
@@ -340,11 +339,9 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
 
         if (settings.getValue(ControlGroup.STICK).visible) {
             drawStick(canvas, stickBase, stickKnob)
-            stickClickButtons.filter { it.group == ControlGroup.STICK }.forEach { drawButton(canvas, it) }
         }
         if (settings.getValue(ControlGroup.RIGHT_STICK).visible) {
             drawStick(canvas, rightStickBase, rightStickKnob)
-            stickClickButtons.filter { it.group == ControlGroup.RIGHT_STICK }.forEach { drawButton(canvas, it) }
         }
         if (settings.getValue(ControlGroup.DPAD).visible) {
             dpadButtons.forEach { drawButton(canvas, it) }
@@ -439,10 +436,12 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
             inCircle(x, y, stickBase) && stickPointer == -1
         ) {
             stickPointer = id
-            updateStick(x, y, stickBase, stickKnob, settings.getValue(ControlGroup.STICK)) { dx, dy ->
-                state.leftX = dx
-                state.leftY = dy
-            }
+            stickDownX = x
+            stickDownY = y
+            stickMoved = false
+            state.leftX = 0
+            state.leftY = 0
+            accessibilityHandler.removeCallbacks(releaseLeftStickClick)
             return
         }
 
@@ -450,10 +449,12 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
             inCircle(x, y, rightStickBase) && rightStickPointer == -1
         ) {
             rightStickPointer = id
-            updateStick(x, y, rightStickBase, rightStickKnob, settings.getValue(ControlGroup.RIGHT_STICK)) { dx, dy ->
-                state.rightX = dx
-                state.rightY = dy
-            }
+            rightStickDownX = x
+            rightStickDownY = y
+            rightStickMoved = false
+            state.rightX = 0
+            state.rightY = 0
+            accessibilityHandler.removeCallbacks(releaseRightStickClick)
         }
     }
 
@@ -463,13 +464,27 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         val y = event.getY(index)
 
         when (id) {
-            stickPointer -> updateStick(x, y, stickBase, stickKnob, settings.getValue(ControlGroup.STICK)) { dx, dy ->
-                state.leftX = dx
-                state.leftY = dy
+            stickPointer -> {
+                if (!stickMoved && hypot((x - stickDownX).toDouble(), (y - stickDownY).toDouble()) > touchSlop.toDouble()) {
+                    stickMoved = true
+                }
+                if (stickMoved) {
+                    updateStick(x, y, stickBase, stickKnob, settings.getValue(ControlGroup.STICK)) { dx, dy ->
+                        state.leftX = dx
+                        state.leftY = dy
+                    }
+                }
             }
-            rightStickPointer -> updateStick(x, y, rightStickBase, rightStickKnob, settings.getValue(ControlGroup.RIGHT_STICK)) { dx, dy ->
-                state.rightX = dx
-                state.rightY = dy
+            rightStickPointer -> {
+                if (!rightStickMoved && hypot((x - rightStickDownX).toDouble(), (y - rightStickDownY).toDouble()) > touchSlop.toDouble()) {
+                    rightStickMoved = true
+                }
+                if (rightStickMoved) {
+                    updateStick(x, y, rightStickBase, rightStickKnob, settings.getValue(ControlGroup.RIGHT_STICK)) { dx, dy ->
+                        state.rightX = dx
+                        state.rightY = dy
+                    }
+                }
             }
         }
         activePointerToRect[id]?.takeIf { it.bit == -1 || it.bit == -2 }?.let {
@@ -482,14 +497,18 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
 
         var handled = false
         if (id == stickPointer) {
+            if (!stickMoved) emitStickClick(ButtonMappingStore.bit(context, "L3"), releaseLeftStickClick)
             stickPointer = -1
+            stickMoved = false
             stickKnob = PointF(stickBase.cx, stickBase.cy)
             state.leftX = 0
             state.leftY = 0
             handled = true
         }
         if (id == rightStickPointer) {
+            if (!rightStickMoved) emitStickClick(ButtonMappingStore.bit(context, "R3"), releaseRightStickClick)
             rightStickPointer = -1
+            rightStickMoved = false
             rightStickKnob = PointF(rightStickBase.cx, rightStickBase.cy)
             state.rightX = 0
             state.rightY = 0
@@ -518,6 +537,12 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         }
     }
 
+    private fun emitStickClick(bit: Int, release: Runnable) {
+        accessibilityHandler.removeCallbacks(release)
+        state.setButton(bit, true)
+        accessibilityHandler.postDelayed(release, 120L)
+    }
+
     private fun triggerValue(rect: Rect2, y: Float): Int {
         if (!y.isFinite()) return 0
         return (((y - rect.r.top) / rect.r.height()).coerceIn(0f, 1f) * 255f).roundToInt()
@@ -536,9 +561,6 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
     }
 
     private fun findRect(x: Float, y: Float): Rect2? {
-        stickClickButtons.firstOrNull {
-            settings.getValue(it.group).visible && it.r.contains(x, y)
-        }?.let { return it }
         if (settings.getValue(ControlGroup.SYSTEM).visible) {
             systemButtons.firstOrNull { it.r.contains(x, y) }?.let { return it }
         }
@@ -585,8 +607,12 @@ class GamepadView(context: Context, attrs: AttributeSet?) : View(context, attrs)
     }
 
     private fun resetInputState() {
+        accessibilityHandler.removeCallbacks(releaseLeftStickClick)
+        accessibilityHandler.removeCallbacks(releaseRightStickClick)
         stickPointer = -1
         rightStickPointer = -1
+        stickMoved = false
+        rightStickMoved = false
         activePointerToRect.clear()
         state.dpad = 0
         state.buttons = 0
