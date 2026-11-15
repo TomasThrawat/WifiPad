@@ -1,0 +1,102 @@
+name: WifiPad Android CI
+
+on:
+  push:
+    branches:
+      - feat/android-tv-gamepad-compat
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wifipad-android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  android:
+    name: Unit tests, lint, and debug APKs
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK tools
+        uses: android-actions/setup-android@v4
+
+      - name: Install Gradle 9.3.1
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: '9.3.1'
+
+      - name: Install required Android SDK packages
+        run: |
+          sdkmanager --channel=3 "platforms;android-37.0" "build-tools;36.0.0" "ndk;28.2.13676358"
+          test -f "$ANDROID_HOME/platforms/android-37.0/android.jar"
+          test -x "$ANDROID_HOME/build-tools/36.0.0/aapt"
+          test -d "$ANDROID_HOME/ndk/28.2.13676358"
+
+      - name: Prepare launcher icons
+        run: python3 scripts/prepare_launcher_icons.py
+
+      - name: Run tests, lint, and APK builds for both apps
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          cleanup() {
+            if [[ -L app ]]; then
+              rm -f app
+            fi
+          }
+          trap cleanup EXIT
+
+          build_module() {
+            local module="$1"
+
+            if [[ -e app && ! -L app ]]; then
+              echo "Refusing to replace a non-symlink app path"
+              return 1
+            fi
+
+            rm -f app
+            ln -s "$module" app
+
+            echo "=== Unit tests: $module ==="
+            gradle --no-daemon --max-workers=1 --stacktrace --warning-mode all :app:testDebugUnitTest
+
+            echo "=== Android lint: $module ==="
+            gradle --no-daemon --max-workers=1 --stacktrace --warning-mode all :app:lintDebug
+
+            echo "=== Debug APK: $module ==="
+            gradle --no-daemon --max-workers=1 --stacktrace --warning-mode all :app:assembleDebug
+
+            rm -f app
+          }
+
+          build_module controller-app
+          build_module receiver-app
+
+      - name: Upload test reports, lint reports, and debug APKs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wifipad-android-build-${{ github.run_number }}
+          if-no-files-found: warn
+          path: |
+            controller-app/build/test-results/
+            controller-app/build/reports/tests/
+            controller-app/build/reports/lint-results-debug.*
+            controller-app/build/outputs/apk/debug/*.apk
+            receiver-app/build/test-results/
+            receiver-app/build/reports/tests/
+            receiver-app/build/reports/lint-results-debug.*
+            receiver-app/build/outputs/apk/debug/*.apk
